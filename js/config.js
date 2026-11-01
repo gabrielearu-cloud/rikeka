@@ -30,7 +30,6 @@ export const LEGAL = {
   comune: 'italy',
   luogoDati: "[località del database: Firebase → Impostazioni progetto → Località risorse, es. \"eur3 (Europa)\"]",
   versioneTermini: '2026-11-01-contestazioni',
-,
   etaMinima: 18
 };
 
