@@ -364,7 +364,7 @@ function updateFotoLabels() {
 }
 
 // Versione dell'app: deve essere uguale a VERSIONE in sw.js (si vede in fondo al Profilo)
-export const APP_VERSIONE = 'rikeka-v31';
+export const APP_VERSIONE = 'rikeka-v32';
 
 // Anti-flood (gli stessi valori sono in firestore.rules, match /quote)
 const ANNUNCI_INTERVALLO_MS = 31 * 1000;   // 1 secondo di margine sui 30 delle regole
@@ -1648,6 +1648,20 @@ function statusTag(status) {
   return `<span class="text-xs font-semibold px-2 py-0.5 rounded-full border ${s.cls}">${esc(s.text)}</span>`;
 }
 
+// Data e ora di pubblicazione: breve per l'elenco ("Oggi 08:30", "Ieri 18:12", "28 ott 14:05"),
+// estesa per il dettaglio ("Pubblicato il 28 ottobre 2026 alle 14:05")
+function quandoPubblicato(ts, estesa = false) {
+  const d = tsToDate(ts);
+  if (!d) return '';
+  const ora = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  if (estesa) return `Pubblicato il ${d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })} alle ${ora}`;
+  const oggi = new Date(), ieri = new Date(); ieri.setDate(oggi.getDate() - 1);
+  if (d.toDateString() === oggi.toDateString()) return `Oggi ${ora}`;
+  if (d.toDateString() === ieri.toDateString()) return `Ieri ${ora}`;
+  const giorno = d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', ...(d.getFullYear() !== oggi.getFullYear() ? { year: '2-digit' } : {}) });
+  return `${giorno.replace('.', '')} ${ora}`;
+}
+
 // Dati di un annuncio pronti per l'elenco (riga compatta) e per il dettaglio.
 // Restituisce null se l'annuncio non va mostrato (nascosto, filtro "posso permettermi").
 const kmAnnunci = new Map();
@@ -1695,7 +1709,7 @@ function infoAnnuncio(id, o, km) {
   const c = state.catalog;
   const sub = bene ? c.sottocategorie?.[o.sottocategoria]?.label : c.servizi?.[o.livello]?.label?.split(' (')[0];
   const chips = bene
-    ? [c.condizioni?.[o.condizione]?.label?.split(' (')[0], o.annoAcquisto ? `📅 ${o.annoAcquisto}` : null]
+    ? [c.condizioni?.[o.condizione]?.label?.split(' (')[0], o.annoAcquisto ? `Anno ${o.annoAcquisto}` : null]
     : [o.ore ? `⏱ ${o.ore} h` : null];
   const stato = isTrattativa ? '<span class="ad-flag ad-flag-deal">In trattativa</span>'
     : o.status === 'in_verifica' ? '<span class="ad-flag ad-flag-check">In verifica</span>' : '';
@@ -1709,7 +1723,8 @@ function infoAnnuncio(id, o, km) {
         ${stato}
       </div>
       <div class="ad-body">
-        <p class="ad-type">${bene ? 'Bene' : 'Servizio'}${sub ? ` · ${esc(sub)}` : ''}</p>
+        <div class="ad-top"><p class="ad-type">${bene ? 'Bene' : 'Servizio'}${sub ? ` · ${esc(sub)}` : ''}</p>
+          <span class="ad-date">${esc(quandoPubblicato(o.timestamp))}</span></div>
         <h3 class="ad-title">${esc(o.title)}</h3>
         <p class="ad-kp"><b>${cp}</b> KP</p>
         ${zonaAnnuncioHtml(o, km, isOwner)}
@@ -1728,6 +1743,7 @@ function infoAnnuncio(id, o, km) {
       ${zonaAnnuncioHtml(o, km, isOwner)}
       <p class="ad-detail-desc">${esc(o.description)}</p>
       <p class="ad-detail-val">${valuationLine(o)}</p>
+      <p class="ad-detail-date">🕒 ${esc(quandoPubblicato(o.timestamp, true))}</p>
       <p class="ad-owner">Offerto da: <b>${esc(o.ownerName || 'Utente')}</b> <span class="rep" data-rep="${esc(o.ownerId)}"></span></p>
       <div class="ad-actions">${buttons}</div>
     </div>`;
