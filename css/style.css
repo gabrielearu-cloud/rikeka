@@ -610,10 +610,13 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neu
 
 /* ---------- v33: menu categorie laterale (solo PC) ---------- */
 .cat-side { display: none; }
+/* Colonna attaccata al lato sinistro del pannello dell'app (largo 28rem e centrato):
+   va dalla testata alla barra in basso, senza mai coprirla */
 @media (min-width: 1024px) {
-  .cat-side { display: block; position: fixed; z-index: 15; top: 5.5rem; width: 15rem;
-    left: max(1rem, calc(50% - 14rem - 15rem - 1.5rem)); max-height: calc(100vh - 7rem); overflow-y: auto;
-    background: #fff; border: 1px solid #e5e7eb; border-radius: .9rem; box-shadow: 0 4px 18px rgba(0,0,0,.06); padding: .7rem; }
+  .cat-side { display: block; position: fixed; z-index: 5; width: 15rem;
+    left: calc(50% - 14rem - 15rem); top: 56px; bottom: calc(64px + env(safe-area-inset-bottom));
+    overflow-y: auto; background: #fff; padding: .9rem .7rem;
+    border-right: 1px solid #e5e7eb; box-shadow: -8px 0 16px -10px rgba(0,0,0,.18); }
   #group-chips { display: none; }
 }
 .cat-side-title { font-size: .72rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; padding: .1rem .5rem .5rem; }
