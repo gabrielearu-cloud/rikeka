@@ -391,6 +391,10 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neu
 .ad-flag-deal { background: #facc15; color: #713f12; }
 .ad-flag-check { background: #ede9fe; color: #5b21b6; }
 .ad-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .12rem; padding: .1rem .15rem .1rem 0; }
+.ad-top { display: flex; align-items: baseline; justify-content: space-between; gap: .4rem; min-width: 0; }
+.ad-top .ad-type { min-width: 0; }
+.ad-date { flex-shrink: 0; font-size: .66rem; color: #9ca3af; white-space: nowrap; }
+.ad-detail-date { margin-top: .35rem; font-size: .78rem; color: #6b7280; }
 .ad-type { font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ad-bene .ad-type { color: #15803d; }
