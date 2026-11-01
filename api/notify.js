@@ -71,6 +71,28 @@ async function buildNotification(db, uid, body) {
       body: `${clip(p.nome, 40)}: ${clip(p.testo, 100)}` };
   }
 
+  // Contestazione su uno scambio: aperta da chi ha ricevuto -> avviso agli amministratori;
+  // decisa da un amministratore -> esito a chi ha ricevuto e a chi ha regalato
+  if (type === 'dispute' || type === 'dispute_done') {
+    const id = docId(body.offerId);
+    if (!id) return null;
+    const c = (await db.doc(`contestazioni/${id}`).get()).data();
+    if (!c) return null;
+    const t = `«${clip(c.titolo, 60)}»`;
+    if (type === 'dispute') {
+      if (c.buyerId !== uid || c.stato !== 'aperta') return null;
+      const admins = (await db.collection('admins').get()).docs.map((d) => d.id).filter((a) => a !== uid);
+      return { toList: admins, key: `dispute_${id}`, status: 'aperta', tag: 'dispute',
+        title: '⚠️ Contestazione su uno scambio', body: `${clip(c.buyerName, 40)} segnala un problema su ${t}: Pannello Admin → Contestazioni.` };
+    }
+    if (c.decisoDa !== uid || c.stato === 'aperta' || !(await db.doc(`admins/${uid}`).get()).exists) return null;
+    const esito = { rimborso: `accolta: ${c.cpValue} KP restituiti a ${clip(c.buyerName, 30)}`,
+      rimborso_storno: `accolta: ${c.cpValue} KP restituiti a ${clip(c.buyerName, 30)} e tolti a ${clip(c.ownerName, 30)}`,
+      respinta: 'respinta, i KP restano dove sono' }[c.stato] || 'decisa';
+    return { toList: [c.buyerId, c.ownerId], key: `dispute_done_${id}`, status: c.stato, tag: `offer-${id}`,
+      title: '⚖️ Contestazione decisa', body: `${t}: ${esito}.` };
+  }
+
   // Annuncio rimosso da un amministratore: l'annuncio non esiste piu', si legge l'avviso
   if (type === 'removed') {
     const id = docId(body.offerId);
@@ -96,7 +118,7 @@ async function buildNotification(db, uid, body) {
       return { ...base, to: o.reservedBy, title: '🎉 Sei stato scelto!', body: `${t} è riservato per te. Accordati in chat per la consegna.` };
     case 'delivered':
       if (o.ownerId !== uid || o.status !== 'consegnato' || !o.reservedBy) return null;
-      return { ...base, to: o.reservedBy, title: '📦 Conferma la ricezione', body: `${clip(o.ownerName, 40)} ha segnato ${t} come consegnato. Conferma dal tuo Profilo.` };
+      return { ...base, to: o.reservedBy, title: '📦 Conferma la ricezione', body: `${clip(o.ownerName, 40)} ha segnato ${t} come consegnato. Se l'hai ricevuto, conferma nella chat.` };
     case 'not_received':
       if (o.reservedBy !== uid || o.status !== 'in_trattativa') return null;
       return { ...base, to: o.ownerId, title: '⚠️ Ricezione non confermata', body: `${clip(o.reservedByName, 40)} dice di non aver ricevuto ${t}. Scrivigli in chat.` };
