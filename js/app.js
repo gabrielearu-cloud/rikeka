@@ -1295,7 +1295,22 @@ function renderGroupSide() {
       voce(groupFilter === gruppo && !tabServizi, 'scegliCategoriaLaterale(this.dataset.g)', `${icona} ${esc(gruppo)}`, conta.get(gruppo) || 0, `data-g="${esc(gruppo)}"`)).join('')
     + '<hr class="cat-side-sep">'
     + voce(tabServizi, "scegliCategoriaLaterale('__servizi')", '🤝 Servizi e aiuto', servizi);
+  posizionaMenuLaterale();
 }
+// Il menu laterale si aggancia al bordo sinistro del pannello, tra la testata e la barra in basso
+function posizionaMenuLaterale() {
+  const side = $('cat-side');
+  if (!side || getComputedStyle(side).display === 'none') return;
+  const pannello = $('app-container')?.getBoundingClientRect();
+  const testata = $('app-header')?.getBoundingClientRect();
+  const barra = $('tab-bar')?.getBoundingClientRect();
+  if (!pannello || !testata || !barra || !pannello.width) return;
+  side.style.left = Math.max(0, pannello.left - (side.offsetWidth || 240)) + 'px';
+  side.style.top = Math.max(0, testata.bottom) + 'px';
+  side.style.bottom = Math.max(0, window.innerHeight - barra.top) + 'px';
+}
+window.addEventListener('resize', posizionaMenuLaterale);
+
 window.scegliCategoriaLaterale = function (g) {
   if (g === '__servizi') {
     groupFilter = '';
