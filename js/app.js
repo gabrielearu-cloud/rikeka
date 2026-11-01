@@ -364,7 +364,7 @@ function updateFotoLabels() {
 }
 
 // Versione dell'app: deve essere uguale a VERSIONE in sw.js (si vede in fondo al Profilo)
-export const APP_VERSIONE = 'rikeka-v30';
+export const APP_VERSIONE = 'rikeka-v31';
 
 // Anti-flood (gli stessi valori sono in firestore.rules, match /quote)
 const ANNUNCI_INTERVALLO_MS = 31 * 1000;   // 1 secondo di margine sui 30 delle regole
@@ -1648,69 +1648,109 @@ function statusTag(status) {
   return `<span class="text-xs font-semibold px-2 py-0.5 rounded-full border ${s.cls}">${esc(s.text)}</span>`;
 }
 
+// Dati di un annuncio pronti per l'elenco (riga compatta) e per il dettaglio.
+// Restituisce null se l'annuncio non va mostrato (nascosto, filtro "posso permettermi").
+const kmAnnunci = new Map();
+function infoAnnuncio(id, o, km) {
+  const me = auth.currentUser;
+  if (!me || !o) return null;
+  const soglia = state.catalog.sogliaSegnalazioni;
+  const cp = Number(o.cpValue) || 0;
+  const isOwner = o.ownerId === me.uid;
+  const hidden = (o.reportCount || 0) >= soglia || o.nascosto === true;
+  if (hidden && !isOwner && !state.isAdmin) return null;
+  const isTrattativa = o.status === 'in_trattativa';
+  const affordable = state.isAdmin || state.karma === null || state.karma >= cp;
+  const bene = o.type === 'bene';
+
+  let buttons = '';
+  if (isOwner) {
+    if (hidden) {
+      buttons = `<p class="ad-note ad-note-red">Annuncio nascosto per segnalazioni: un amministratore lo sta controllando.</p>`;
+    } else if (isTrattativa) {
+      buttons = `
+        <p class="ad-note">Assegnato a: <b>${esc(o.reservedByName || 'acquirente')}</b></p>
+        <button onclick="markDelivered('${sid(id)}')" class="ad-btn ad-btn-main">📦 Ho consegnato</button>
+        <p class="ad-note">Riceverai ${cp} KP quando ${esc(o.reservedByName || 'l\'altra persona')} confermerà di averlo ricevuto.</p>
+        <button onclick="setDisponibile('${sid(id)}')" class="ad-btn ad-btn-ghost">Rendi di nuovo disponibile</button>`;
+    } else {
+      buttons = `
+        <button onclick="setInTrattativa('${sid(id)}')" class="ad-btn ad-btn-warn">Metti in trattativa</button>
+        <button onclick="deleteOffer('${sid(id)}')" class="ad-btn ad-btn-danger">Elimina annuncio</button>`;
+    }
+  } else if (isTrattativa) {
+    buttons = `<button disabled class="ad-btn ad-btn-off">${o.reservedBy === me.uid ? 'Riservato per te: conferma la ricezione dal Profilo' : 'In trattativa con un\'altra persona'}</button>`;
+  } else {
+    buttons = affordable
+      ? `<button onclick="startChat('${sid(id)}')" class="ad-btn ad-btn-main">💬 Avvia chat</button>`
+      : `<button disabled class="ad-btn ad-btn-off">KP insufficienti (servono ${cp}, hai ${state.karma})</button>`;
+    buttons += `<button onclick="reportOffer('${sid(id)}')" class="ad-btn ad-btn-link">⚑ Segnala l'annuncio</button>`;
+  }
+  if (state.isAdmin && !isOwner) buttons += `<button onclick="adminRemoveOffer('${sid(id)}')" class="admin-remove">🛡 Rimuovi (amministratore)${hidden ? ' · nascosto per segnalazioni' : ''}</button>`;
+
+  // Foto: miniatura (o icona del tipo) + numero di foto
+  const legacy = Array.isArray(o.images) ? o.images.map(safeImg).filter(Boolean) : [];
+  const src = safeImg(o.thumb) || legacy[0] || '';
+  const nFoto = o.fotoCount || legacy.length;
+  const c = state.catalog;
+  const sub = bene ? c.sottocategorie?.[o.sottocategoria]?.label : c.servizi?.[o.livello]?.label?.split(' (')[0];
+  const chips = bene
+    ? [c.condizioni?.[o.condizione]?.label?.split(' (')[0], o.annoAcquisto ? `📅 ${o.annoAcquisto}` : null]
+    : [o.ore ? `⏱ ${o.ore} h` : null];
+  const stato = isTrattativa ? '<span class="ad-flag ad-flag-deal">In trattativa</span>'
+    : o.status === 'in_verifica' ? '<span class="ad-flag ad-flag-check">In verifica</span>' : '';
+
+  const card = `
+    <article class="ad-card ${bene ? 'ad-bene' : 'ad-serv'}${hidden ? ' ad-hidden' : ''}" role="button" tabindex="0"
+             onclick="apriAnnuncio('${sid(id)}')" onkeydown="if(event.key==='Enter')apriAnnuncio('${sid(id)}')">
+      <div class="ad-thumb">
+        ${src ? `<img src="${src}" loading="lazy" alt="">` : `<div class="ad-thumb-empty">${bene ? ICON_BENE : ICON_SERV}</div>`}
+        ${nFoto > 1 ? `<span class="ad-photos">📷 ${nFoto}</span>` : ''}
+        ${stato}
+      </div>
+      <div class="ad-body">
+        <p class="ad-type">${bene ? 'Bene' : 'Servizio'}${sub ? ` · ${esc(sub)}` : ''}</p>
+        <h3 class="ad-title">${esc(o.title)}</h3>
+        <p class="ad-kp"><b>${cp}</b> KP</p>
+        ${zonaAnnuncioHtml(o, km, isOwner)}
+        <div class="ad-chips">${chips.filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join('')}</div>
+        <p class="ad-owner">${isOwner ? '<b>Il tuo annuncio</b>' : `${esc(o.ownerName || 'Utente')} <span class="rep" data-rep="${esc(o.ownerId)}"></span>`}</p>
+      </div>
+    </article>`;
+
+  const detail = `
+    <div class="ad-detail ${bene ? 'ad-bene' : 'ad-serv'}">
+      ${src ? `<div class="ad-detail-photo" onclick="openLightbox('${sid(id)}')"><img src="${src}" alt="Foto annuncio">
+        ${nFoto ? `<span class="ad-photos">📷 ${nFoto} · tocca per ingrandire</span>` : ''}</div>` : ''}
+      <p class="ad-type">${bene ? 'Bene' : 'Servizio'}${sub ? ` · ${esc(sub)}` : ''}</p>
+      <h3 class="ad-detail-title">${esc(o.title)}</h3>
+      <div class="ad-detail-row"><p class="ad-kp ad-kp-big"><b>${cp}</b> KP</p>${statusTag(o.status)}</div>
+      ${zonaAnnuncioHtml(o, km, isOwner)}
+      <p class="ad-detail-desc">${esc(o.description)}</p>
+      <p class="ad-detail-val">${valuationLine(o)}</p>
+      <p class="ad-owner">Offerto da: <b>${esc(o.ownerName || 'Utente')}</b> <span class="rep" data-rep="${esc(o.ownerId)}"></span></p>
+      <div class="ad-actions">${buttons}</div>
+    </div>`;
+  return { card, detail, bene };
+}
+
 function renderOffers() {
   const me = auth.currentUser;
   if (!me) return;
-  const soglia = state.catalog.sogliaSegnalazioni;
   let beni = '', servizi = '';
   renderGroupChips();
   renderZoneBanner();
   const lista = annunciVisibili();
+  kmAnnunci.clear();
 
   lista.forEach(({ id, data: o, km }) => {
+    kmAnnunci.set(id, km);
     const cp = Number(o.cpValue) || 0;
-    const isOwner = o.ownerId === me.uid;
-    const hidden = (o.reportCount || 0) >= soglia || o.nascosto === true;
-    if (hidden && !isOwner && !state.isAdmin) return;
-    const isTrattativa = o.status === 'in_trattativa';
     const affordable = state.isAdmin || state.karma === null || state.karma >= cp;
-    if (onlyAffordable && !isOwner && !affordable) return;
-
-    let buttons = '';
-    if (isOwner) {
-      if (hidden) {
-        buttons = `<p class="mt-3 text-xs text-red-600">Annuncio nascosto per segnalazioni: un amministratore lo sta controllando.</p>`;
-      } else if (isTrattativa) {
-        buttons = `
-          <p class="text-xs text-gray-500 mt-2">Assegnato a: <b>${esc(o.reservedByName || 'acquirente')}</b></p>
-          <button onclick="markDelivered('${sid(id)}')" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-sm font-medium rounded-lg shadow-md">📦 Ho consegnato</button>
-          <p class="text-xs text-gray-500 mt-1">Riceverai ${cp} KP quando ${esc(o.reservedByName || 'l\'altra persona')} confermerà di averlo ricevuto.</p>
-          <button onclick="setDisponibile('${sid(id)}')" class="mt-2 w-full bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 px-4 py-2 text-sm font-medium rounded-lg">Rendi di nuovo disponibile</button>`;
-      } else {
-        buttons = `
-          <button onclick="setInTrattativa('${sid(id)}')" class="mt-3 w-full bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 text-sm font-medium rounded-lg shadow-md">Metti in Trattativa</button>
-          <button onclick="deleteOffer('${sid(id)}')" class="mt-2 w-full bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-4 py-2 text-sm font-medium rounded-lg">Elimina Annuncio</button>`;
-      }
-    } else if (isTrattativa) {
-      buttons = `<button disabled class="mt-3 w-full px-4 py-2 text-sm font-medium rounded-lg ${o.reservedBy === me.uid ? 'text-green-800 bg-green-100' : 'text-gray-500 bg-gray-200'} cursor-not-allowed">${o.reservedBy === me.uid ? `Riservato per te: conferma la ricezione dal Profilo` : 'In Trattativa'}</button>`;
-    } else {
-      buttons = affordable
-        ? `<button onclick="startChat('${sid(id)}')" class="mt-3 w-full ${o.type === 'bene' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} text-white px-4 py-2 text-sm font-medium rounded-lg shadow-md">Avvia Chat</button>`
-        : `<button disabled class="mt-3 w-full px-4 py-2 text-sm font-medium rounded-lg text-gray-500 bg-gray-200 cursor-not-allowed">KP insufficienti (servono ${cp}, hai ${state.karma})</button>`;
-      buttons += `<button onclick="reportOffer('${sid(id)}')" class="mt-2 w-full text-xs text-gray-400 hover:text-red-600">⚑ Segnala</button>`;
-    }
-
-    const html = `
-      <div class="p-4 rounded-xl shadow-lg border border-gray-100 flex flex-col ${hidden ? 'opacity-60 bg-gray-50' : 'bg-white'}${isTrattativa ? ' card-trattativa' : ''}">
-        <div class="flex items-start mb-3">
-          <div class="p-3 rounded-full ${o.type === 'bene' ? 'bg-green-600' : 'bg-blue-600'} text-white mr-3 shadow-sm">${o.type === 'bene' ? ICON_BENE : ICON_SERV}</div>
-          <div class="flex-1">
-            <h3 class="text-lg font-semibold text-gray-800" style="word-break:break-word">${esc(o.title)}</h3>
-            <div class="mt-1 flex items-center justify-between">
-              ${statusTag(o.status)}
-              <span class="bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded-full">💰 ${cp} KP</span>
-            </div>
-            ${zonaAnnuncioHtml(o, km, isOwner)}
-          </div>
-        </div>
-        ${thumbHtml(id, o)}
-        <p class="text-sm text-gray-600 whitespace-pre-line" style="word-break:break-word">${esc(o.description)}</p>
-        <p class="text-xs text-gray-500 mt-2">${valuationLine(o)}</p>
-        <p class="text-xs text-gray-400 mt-1">Offerto da: <span class="font-medium text-gray-500">${esc(o.ownerName)}</span> <span class="rep" data-rep="${esc(o.ownerId)}"></span></p>
-        ${buttons}
-        ${state.isAdmin && !isOwner ? `<button onclick="adminRemoveOffer('${sid(id)}')" class="admin-remove">🛡 Rimuovi (amministratore)${hidden ? ' · nascosto per segnalazioni' : ''}</button>` : ''}
-      </div>`;
-    if (o.type === 'bene') beni += html; else servizi += html;
+    if (onlyAffordable && o.ownerId !== me.uid && !affordable) return;
+    const info = infoAnnuncio(id, o, km);
+    if (!info) return;
+    if (info.bene) beni += info.card; else servizi += info.card;
   });
 
   $('item-list-bene').innerHTML = beni;
@@ -1728,7 +1768,28 @@ function renderOffers() {
   $('search-status').textContent = searchTerms.length
     ? `${lista.length} ${lista.length === 1 ? 'risultato' : 'risultati'}${state.zona ? ', i più vicini per primi' : ''}`
     : (state.zona ? `Ordinati per vicinanza a ${state.zona.nome}` : '');
+  if (annuncioAperto) aggiornaDettaglio();
 }
+
+// ---------- Dettaglio annuncio (foglio dal basso) ----------
+let annuncioAperto = null;
+function aggiornaDettaglio() {
+  const o = state.offers.get(annuncioAperto);
+  const info = infoAnnuncio(annuncioAperto, o, kmAnnunci.get(annuncioAperto) ?? null);
+  if (!info) { window.chiudiAnnuncio(); return; }
+  $('offer-sheet-body').innerHTML = info.detail;
+  fillReputazioni();
+}
+window.apriAnnuncio = function (id) {
+  if (!id || !state.offers.get(id)) return;
+  annuncioAperto = id;
+  aggiornaDettaglio();
+  $('offer-sheet').style.display = 'flex';
+};
+window.chiudiAnnuncio = function () {
+  annuncioAperto = null;
+  $('offer-sheet').style.display = 'none';
+};
 
 function renderMyOffers() {
   const box = $('my-offers');
@@ -2118,7 +2179,7 @@ function zonaAnnuncioHtml(o, km, isOwner) {
     if (isOwner) return '<p class="offer-zone">📍 La tua posizione</p>';
     return dist
       ? `<p class="offer-zone">📍 a ${esc(dist)} da te</p>`
-      : '<p class="offer-zone"><button type="button" class="offer-zone-link" onclick="openZoneModal(false)">📍 Imposta la tua zona per vedere la distanza</button></p>';
+      : '<p class="offer-zone"><button type="button" class="offer-zone-link" onclick="event.stopPropagation();chiudiAnnuncio();openZoneModal(false)">📍 Imposta la tua zona per vedere la distanza</button></p>';
   }
   return `<p class="offer-zone">📍 ${esc(z.nome)}${dist ? ` <span class="offer-zone-km">· ${esc(dist)}</span>` : ''}</p>`;
 }
