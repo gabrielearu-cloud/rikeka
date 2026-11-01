@@ -59,8 +59,58 @@ export async function initPushUi() {
     registerToken().catch((e) => reportError('push.refresh', e));
     return paint('attive', '🔔 Notifiche attive su questo dispositivo.', false);
   }
-  return paint('da-attivare', 'Ricevi un avviso per nuovi messaggi e per i tuoi scambi, anche ad app chiusa.', true);
+  paint('da-attivare', 'Ricevi un avviso per nuovi messaggi e per i tuoi scambi, anche ad app chiusa.', true);
+  proponiNotifiche();
 }
+
+// ---------- Invito automatico ad attivare le notifiche ----------
+// Compare da solo (non serve cercarlo nel Profilo): subito al primo avvio dell'app
+// installata, oppure nel browser. Se si sceglie "Più tardi" ricompare dopo 3 giorni,
+// al massimo 4 volte. Il permesso vero lo chiede il browser al tocco su "Attiva".
+const CHIAVE_INVITO = 'rk_invito_notifiche';
+let invitoInCorso = false;
+function leggiInvito() {
+  try { return JSON.parse(localStorage.getItem(CHIAVE_INVITO) || 'null') || { volte: 0, ultimo: 0 }; }
+  catch (_) { return { volte: 0, ultimo: 0 }; }
+}
+function salvaInvito(v) { try { localStorage.setItem(CHIAVE_INVITO, JSON.stringify(v)); } catch (_) {} }
+const altraFinestraAperta = () => [...document.querySelectorAll('.modal-overlay')]
+  .some((m) => m.id !== 'push-modal' && getComputedStyle(m).display !== 'none')
+  || !document.getElementById('camera-modal')?.classList.contains('hidden');
+
+function proponiNotifiche() {
+  if (invitoInCorso || !auth.currentUser || Notification.permission !== 'default') return;
+  const v = leggiInvito();
+  // primo avvio dell'app installata: si propone sempre, anche se nel browser si era detto "Più tardi"
+  const primoAvvioApp = isStandalone && !v.app;
+  if (!primoAvvioApp && (v.volte >= 4 || (v.ultimo && Date.now() - v.ultimo < 3 * 864e5))) return;
+  invitoInCorso = true;
+  // aspetta che non ci siano altre finestre aperte (Termini, zona, benvenuto…)
+  let tentativi = 0;
+  const prova = () => {
+    if (!auth.currentUser || Notification.permission !== 'default') { invitoInCorso = false; return; }
+    if (altraFinestraAperta() && tentativi++ < 120) { setTimeout(prova, 2000); return; }
+    const m = $('push-modal');
+    if (!m) { invitoInCorso = false; return; }
+    $('push-modal-app').classList.toggle('hidden', !isStandalone);
+    m.style.display = 'flex';
+    salvaInvito({ volte: v.volte + 1, ultimo: Date.now(), app: v.app || isStandalone });
+    logEvent('push_prompt_shown', { standalone: isStandalone, volta: v.volte + 1 });
+  };
+  setTimeout(prova, isStandalone ? 1500 : 4000);
+}
+
+window.attivaDaInvito = async function () {
+  $('push-modal').style.display = 'none';
+  invitoInCorso = false;
+  await window.enablePush();
+  if (Notification.permission === 'granted') salvaInvito({ volte: 99, ultimo: Date.now(), app: true });
+};
+window.rimandaInvitoNotifiche = function () {
+  $('push-modal').style.display = 'none';
+  invitoInCorso = false;
+  logEvent('push_prompt_later', {});
+};
 
 async function registerToken() {
   const me = auth.currentUser;

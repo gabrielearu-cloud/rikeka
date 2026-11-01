@@ -36,8 +36,70 @@ window.openAdmin = async function () {
 
 window.refreshAdmin = async function () {
   if (!state.isAdmin) return;
-  await Promise.all([loadStats(), loadBugs(), loadIscrizioni(), loadAdmins(), loadControl(), loadReviewQueue(), loadReported(), loadLogs()]);
+  await Promise.all([loadStats(), loadContestazioniAdmin(), loadBugs(), loadIscrizioni(), loadAdmins(), loadControl(), loadReviewQueue(), loadReported(), loadLogs()]);
   fillCatalogEditor();
+};
+
+// ---------- Contestazioni: problemi su scambi conclusi (entro 48 ore) ----------
+const TIPI = { rotto: 'Rotto o danneggiato', non_funziona: 'Non funziona', pericoloso: 'Pericoloso (surriscaldato, ha preso fuoco…)',
+  diverso: 'Diverso dalla descrizione', non_ricevuto: 'Mai ricevuto', servizio: 'Servizio non svolto o svolto male', altro: 'Altro' };
+async function loadContestazioniAdmin() {
+  const box = $('admin-contest');
+  box.innerHTML = '<p class="text-xs text-gray-500">Caricamento...</p>';
+  try {
+    const snap = await getDocs(query(collection(db, 'contestazioni'), where('stato', '==', 'aperta'), limit(50)));
+    if (snap.empty) { box.innerHTML = '<p class="text-xs text-gray-400">Nessuna contestazione aperta. 🎉</p>'; return; }
+    box.innerHTML = snap.docs.map((d) => {
+      const c = d.data(), t = tsToDate(c.createdAt), kp = Number(c.cpValue) || 0;
+      const b = esc(c.buyerName || 'chi ha ricevuto'), g = esc(c.ownerName || 'chi ha regalato');
+      return `<div class="adm-card contest-card">
+        <div class="flex justify-between gap-2"><b>${esc(c.titolo)}</b><span class="text-xs font-bold text-amber-700">${kp} KP</span></div>
+        <p class="text-xs text-gray-500">Regalato da <b>${g}</b> a <b>${b}</b>${t ? ` · segnalato il ${esc(t.toLocaleString('it-IT'))}` : ''}</p>
+        <p class="text-xs mt-1"><b>${esc(TIPI[c.tipo] || 'Altro')}</b></p>
+        <p class="text-sm text-gray-800 mt-1" style="white-space:pre-wrap">${esc(c.testo)}</p>
+        <p class="text-xs text-gray-500 mt-1">Leggi anche la chat tra i due prima di decidere (chiedi gli screenshot se serve).</p>
+        <div class="adm-actions">
+          <button class="adm-btn ok" onclick="decidiContestazione('${sid(d.id)}', 'rimborso_storno')">Restituisci ${kp} KP a ${b} e toglili a ${g}</button>
+          <button class="adm-btn" onclick="decidiContestazione('${sid(d.id)}', 'rimborso')">Restituisci ${kp} KP a ${b} (senza toglierli a ${g})</button>
+          <button class="adm-btn warn" onclick="decidiContestazione('${sid(d.id)}', 'respinta')">Respingi</button>
+        </div></div>`;
+    }).join('');
+  } catch (e) {
+    reportError('admin.loadContestazioni', e);
+    box.innerHTML = `<p class="text-xs text-red-600">${regoleVecchie(e)}</p>`;
+  }
+}
+
+window.decidiContestazione = async function (offerId, esito) {
+  if (!['rimborso', 'rimborso_storno', 'respinta'].includes(esito)) return;
+  const domanda = { rimborso_storno: 'Restituire i KP a chi ha ricevuto e toglierli a chi ha regalato (senza scendere sotto zero)?',
+    rimborso: 'Restituire i KP a chi ha ricevuto, lasciandoli anche a chi ha regalato?', respinta: 'Respingere la segnalazione? Nessun KP si sposta.' }[esito];
+  if (!confirm(domanda)) return;
+  const nota = (prompt('Nota per i due utenti (facoltativa, max 300 caratteri):', '') || '').trim().slice(0, 300);
+  const me = auth.currentUser;
+  try {
+    await runTransaction(db, async (tx) => {
+      const cRef = doc(db, 'contestazioni', offerId);
+      const c = (await tx.get(cRef)).data();
+      if (!c || c.stato !== 'aperta') throw new Error('La contestazione è già stata decisa.');
+      const cp = Number(c.cpValue);
+      const bRef = doc(db, 'users', c.buyerId), gRef = doc(db, 'users', c.ownerId);
+      const bSnap = await tx.get(bRef), gSnap = await tx.get(gRef);
+      tx.update(cRef, { stato: esito, decisoDa: me.uid, decisoAt: serverTimestamp(), ...(nota ? { nota } : {}) });
+      if (esito !== 'respinta' && bSnap.exists()) {
+        tx.update(bRef, { karmaPoints: (bSnap.data().karmaPoints ?? 0) + cp, lastOfferId: offerId });
+      }
+      if (esito === 'rimborso_storno' && gSnap.exists()) {
+        tx.update(gRef, { karmaPoints: Math.max(0, (gSnap.data().karmaPoints ?? 0) - cp), lastOfferId: offerId });
+      }
+    });
+    logEvent('dispute_decided', { offerId, esito }, 'warn');
+    notify('dispute_done', { offerId });
+    loadContestazioniAdmin();
+  } catch (e) {
+    reportError('decidiContestazione', e, { offerId });
+    alert('Operazione non riuscita: ' + (e?.code ? regoleVecchie(e).replace(/<[^>]+>/g, '') : e.message));
+  }
 };
 
 // ---------- Problemi segnalati dagli utenti ----------

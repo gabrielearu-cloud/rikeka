@@ -46,8 +46,10 @@ let emailRemovalTried = false;
 
 let toReceive = [];           // [{id, data}] annunci riservati a me (in trattativa o consegnati)
 let toReceiveStatus = new Map();
+let ricevutiConclusi = [];     // [{id, data}] scambi in cui ho ricevuto, già conclusi (per lo storico)
 
-let unsub = { offers: null, myOffers: null, toReceive: null, chats: null, profile: null, messages: null, chatOffer: null, catalog: null };
+let unsub = { offers: null, myOffers: null, toReceive: null, chats: null, profile: null, messages: null, chatOffer: null, catalog: null, contestB: null, contestO: null };
+const contestazioni = new Map();   // offerId -> contestazione (come chi riceve o chi regala)
 
 // Il profilo nuovo va creato solo dopo aver letto il catalogo (serve kpIniziali)
 let catalogReady, resolveCatalogReady;
@@ -106,7 +108,10 @@ const updateChatTabIndicator = () => {
   if (dot) { dot.textContent = n > 9 ? '9+' : String(n); dot.classList.add('unread-count'); }
   try { if (n > 0) navigator.setAppBadge?.(n); else navigator.clearAppBadge?.(); } catch (_) {}
 };
-const updateProfileTabIndicator = () => setIndicator('nav-profile', hasNewProfileUpdate);
+// Pallino sul Profilo: novità, oppure qualcosa che tocca a me (confermare una ricezione, dare un giudizio)
+let giudiziDaDare = 0;
+const updateProfileTabIndicator = () => setIndicator('nav-profile', hasNewProfileUpdate || giudiziDaDare > 0
+  || toReceive.some((o) => o.data.status === 'consegnato'));
 
 window.switchHomeTab = function (type, element) {
   document.querySelectorAll('.home-tab-content').forEach((c) => c.classList.add('hidden'));
@@ -364,7 +369,7 @@ function updateFotoLabels() {
 }
 
 // Versione dell'app: deve essere uguale a VERSIONE in sw.js (si vede in fondo al Profilo)
-export const APP_VERSIONE = 'rikeka-v32';
+export const APP_VERSIONE = 'rikeka-v33';
 
 // Anti-flood (gli stessi valori sono in firestore.rules, match /quote)
 const ANNUNCI_INTERVALLO_MS = 31 * 1000;   // 1 secondo di margine sui 30 delle regole
@@ -477,6 +482,7 @@ onAuthStateChanged(auth, (user) => {
     loadOffers();
     loadMyOffers(user.uid);
     loadToReceive(user.uid);
+    loadContestazioni(user.uid);
     initPushUi();
     loadChatList();
     loadProfileData(user.uid);
@@ -498,7 +504,7 @@ onAuthStateChanged(auth, (user) => {
     repCache.clear();
     $('profile-role').textContent = 'Membro Rikeka';
     myOfferStatus = new Map();
-    toReceive = []; toReceiveStatus = new Map();
+    toReceive = []; toReceiveStatus = new Map(); ricevutiConclusi = []; giudiziDaDare = 0; contestazioni.clear();
     state.zona = null; zonePromptShown = false;
     searchTerms = []; searchResults = null; groupFilter = '';
     $('consent-modal').style.display = 'none';
@@ -585,9 +591,12 @@ function renderChatDeal() {
   const kp = `<b>${o.cpValue} KP</b>`;
   let stato = '', testo = '', azioni = '', cls = 'deal-info';
 
+  let turno = false;   // tocca a me fare qualcosa: la barra diventa ben visibile
+  const contest = contestazioni.get(offerId);
+
   if (o.status === 'concluso') {
     stato = '✅ Scambio concluso'; cls = 'deal-done';
-    testo = perQuesto ? (isOwner ? `Hai ricevuto ${kp}. Grazie!` : `Hai donato ${kp} a chi ti ha aiutato.`) : 'L\'annuncio è stato assegnato.';
+    testo = perQuesto ? (isOwner ? `${esc(altro)} ha confermato la ricezione: hai ricevuto ${kp}. Ora puoi lasciargli l'oggetto. Grazie!` : `Hai donato ${kp} a chi ti ha aiutato.`) : 'L\'annuncio è stato assegnato.';
     if (isOwner && perQuesto) {
       if (o.feedbackGiver) testo += ` Il tuo giudizio su ${esc(altro)}: ${o.feedbackGiver === 'positivo' ? '👍 positivo' : '👎 negativo'}.`;
       else {
@@ -597,28 +606,40 @@ function renderChatDeal() {
                   <button class="deal-btn deal-danger" onclick="rateReceiver('${sid(offerId)}', 'negativo')">👎 Negativo</button>`;
       }
     }
+    if (perQuesto && contest) {
+      testo += ` <br>${testoContestazione(contest, isOwner, altro)}`;
+      cls = contest.stato === 'aperta' ? 'deal-action deal-contestata' : cls;
+    } else if (perQuesto && !isOwner && finestraSegnalazione(o)) {
+      testo += ` Se l'oggetto o il servizio ha un problema (rotto, non funzionante, diverso dalla descrizione), puoi segnalarlo fino a ${esc(finestraSegnalazione(o))}.`;
+      azioni = `<button class="deal-btn deal-ghost" onclick="apriContestazione('${sid(offerId)}')">⚠️ Segnala un problema</button>`;
+    }
   } else if (o.status === 'consegnato' && perQuesto) {
-    stato = '📦 Consegnato'; cls = 'deal-action';
+    stato = '📦 Consegna segnata'; cls = 'deal-action';
     if (isOwner) {
-      testo = `In attesa che ${esc(altro)} confermi di averlo ricevuto. Poi riceverai ${kp}.`;
+      turno = true;
+      testo = `<b>Aspetta prima di lasciare l'oggetto:</b> chiedi a ${esc(altro)} di confermare la ricezione dal suo telefono. Quando conferma, qui comparirà ✅ e riceverai ${kp}. Solo allora consegnaglielo.`;
       const consegnatoMs = o.deliveredAt?.toMillis?.() || 0;
       if (o.aiutoRichiesto) testo += ' Hai chiesto aiuto: un amministratore se ne sta occupando.';
       else if (consegnatoMs && Date.now() - consegnatoMs > 7 * 864e5) {
         testo += ' Sono passati più di 7 giorni senza conferma.';
         azioni = `<button class="deal-btn deal-ghost" onclick="askAdminHelp('${sid(offerId)}')">🆘 Chiedi aiuto a un amministratore</button>`;
-      } else testo += ' Se non conferma entro 7 giorni potrai chiedere aiuto a un amministratore.';
+      }
     } else {
-      testo = `${esc(altro)} ha segnato la consegna. L'hai ricevuto?`;
-      azioni = `<button class="deal-btn deal-primary" onclick="confirmReceived('${sid(offerId)}')">✓ Sì, l'ho ricevuto</button>
-                <button class="deal-btn deal-danger" onclick="notReceived('${sid(offerId)}')">Non l'ho ricevuto</button>`;
+      turno = true;
+      testo = `${esc(altro)} è pronto a consegnarti «${esc(o.title)}». <b>Conferma quando ce l'hai davanti</b>: ${esc(altro)} riceverà ${kp} e ti lascerà l'oggetto. Dopo la conferma hai 48 ore per segnalare eventuali problemi.`;
+      azioni = `<button class="deal-btn deal-primary deal-big" onclick="confirmReceived('${sid(offerId)}')">✓ Confermo la ricezione</button>
+                <button class="deal-btn deal-danger" onclick="notReceived('${sid(offerId)}')">Non ancora / non l'ho ricevuto</button>`;
     }
   } else if (o.status === 'in_trattativa' && perQuesto) {
     stato = '🤝 In trattativa'; cls = 'deal-action';
     if (isOwner) {
-      testo = `Hai scelto ${esc(altro)}. Dopo la consegna premi "Ho consegnato".`;
-      azioni = `<button class="deal-btn deal-primary" onclick="markDelivered('${sid(offerId)}')">📦 Ho consegnato</button>
+      turno = true;
+      testo = `Hai scelto ${esc(altro)}. Quando vi incontrate premi <b>«Ho consegnato»</b>, poi aspetta che ${esc(altro)} confermi dal suo telefono <b>prima</b> di lasciargli l'oggetto.`;
+      azioni = `<button class="deal-btn deal-primary deal-big" onclick="markDelivered('${sid(offerId)}')">📦 Ho consegnato</button>
                 <button class="deal-btn deal-ghost" onclick="setDisponibile('${sid(offerId)}')">Annulla trattativa</button>`;
-    } else testo = `Sei stato scelto! Accordatevi qui su quando e dove fare lo scambio (${kp}).`;
+    } else {
+      testo = `Sei stato scelto! Accordatevi qui su quando e dove fare lo scambio (${kp}). All'incontro ${esc(altro)} segnerà la consegna e tu confermerai dal telefono.`;
+    }
   } else if (o.status === 'in_trattativa' || o.status === 'consegnato') {
     stato = '🤝 In trattativa con un\'altra persona'; cls = 'deal-off';
     testo = isOwner ? 'Puoi annullarla dalla scheda dell\'annuncio se l\'accordo salta.' : 'Se l\'accordo salta, l\'annuncio tornerà disponibile.';
@@ -632,6 +653,7 @@ function renderChatDeal() {
   } else {
     stato = 'Annuncio non disponibile'; cls = 'deal-off';
   }
+  if (turno) { cls += ' deal-turno'; stato = `👉 Tocca a te · ${stato}`; }
   box.className = `chat-deal ${cls}`;
   box.innerHTML = `<div class="deal-head"><span class="deal-state">${stato}</span><span class="deal-title">${esc(o.title)}</span></div>
     ${testo ? `<p class="deal-text">${testo}</p>` : ''}${azioni ? `<div class="deal-actions">${azioni}</div>` : ''}`;
@@ -653,11 +675,21 @@ window.reserveFromChat = async function () {
   await window.confirmReserve(offerId, chat.buyerId, chat.buyerName || nome);
 };
 
+// Anteprima dell'ultimo messaggio: max 50 caratteri, tagliata a parola intera
+// (un taglio a metà parola potrebbe creare per caso una parola vietata)
+function anteprima(testo) {
+  const t = String(testo).replace(/\s+/g, ' ').trim();
+  if (t.length <= 50) return t;
+  const taglio = t.slice(0, 51);
+  const spazio = taglio.lastIndexOf(' ');
+  return (spazio > 20 ? taglio.slice(0, spazio) : t.slice(0, 50)).trim() + '…';
+}
+
 async function postChatEventTo(chatId, testo) {
   try {
     const me = auth.currentUser;
     await addDoc(collection(db, 'chats', chatId, 'messages'), { senderId: me.uid, senderName: (me.displayName || 'Utente').slice(0, 80), text: testo, system: true, timestamp: serverTimestamp() });
-    await updateDoc(doc(db, 'chats', chatId), { lastMessage: testo.slice(0, 50), lastMessageTimestamp: serverTimestamp(), lastMessageSenderId: me.uid });
+    await updateDoc(doc(db, 'chats', chatId), { lastMessage: anteprima(testo), lastMessageTimestamp: serverTimestamp(), lastMessageSenderId: me.uid });
   } catch (e) { console.warn('Evento chat non scritto', e); }
 }
 
@@ -669,7 +701,7 @@ async function postChatEvent(offerId, testo) {
       || (chatCtx?.offerId === offerId ? { id: currentChatId } : null);
     if (!chat?.id || !me) return;
     await addDoc(collection(db, 'chats', chat.id, 'messages'), { senderId: me.uid, senderName: (me.displayName || 'Utente').slice(0, 80), text: testo, system: true, timestamp: serverTimestamp() });
-    await updateDoc(doc(db, 'chats', chat.id), { lastMessage: testo.slice(0, 50), lastMessageTimestamp: serverTimestamp(), lastMessageSenderId: me.uid });
+    await updateDoc(doc(db, 'chats', chat.id), { lastMessage: anteprima(testo), lastMessageTimestamp: serverTimestamp(), lastMessageSenderId: me.uid });
   } catch (e) { console.warn('Evento chat non scritto', e); }
 }
 
@@ -686,6 +718,12 @@ window.sendMessage = async function (event) {
   const me = auth.currentUser;
   if (!text || !chatId || !me) return;
   if (state.sospeso) return alert('Il tuo account è sospeso: non puoi scrivere messaggi.');
+  const vietata = parolaVietata(text);
+  if (vietata) {
+    logEvent('chat_blocked_word', { chatId }, 'warn');
+    return alert(`⛔ Messaggio non inviato: contiene parole non consentite («${vietata}»).\n\n` +
+      'Su Rikeka si scrive con rispetto: niente parolacce, bestemmie o insulti. Correggi il testo e riprova.');
+  }
   input.value = '';
   try {
     await addDoc(collection(db, 'chats', chatId, 'messages'), {
@@ -695,7 +733,7 @@ window.sendMessage = async function (event) {
       timestamp: serverTimestamp()
     });
     await updateDoc(doc(db, 'chats', chatId), {
-      lastMessage: text.substring(0, 50) + (text.length > 50 ? '...' : ''),
+      lastMessage: anteprima(text),
       lastMessageTimestamp: serverTimestamp(),
       lastMessageSenderId: me.uid
     });
@@ -1071,25 +1109,115 @@ window.loadMoreOffers = function () {
 // mostrano ordinati per vicinanza alla zona dell'utente.
 const HOME_BATCH = 60;
 
+let offersTimer = null;
 function loadOffers() {
   unsub.offers?.();
+  clearTimeout(offersTimer);
   const lim = HOME_BATCH * homePages;
   const q = query(collection(db, 'offerte'),
     where('status', 'in', ['disponibile', 'in_trattativa']),
     orderBy('timestamp', 'desc'),
     limit(lim));
-  unsub.offers = onSnapshot(q, (snap) => {
+  // Se dopo 15 secondi il server non ha ancora risposto, lo diciamo invece di lasciare la pagina vuota
+  offersTimer = setTimeout(async () => {
+    if (await bloccoPubblicita()) return;   // AdBlock & co.: avviso dedicato
+    mostraErroreAnnunci('Gli annunci non arrivano dal server. Può essere la connessione, un blocco della rete (Wi-Fi aziendale, antivirus) o una versione vecchia dell\'app salvata nel browser.');
+    logEvent('offers_slow', { fromCache: true }, 'warn');
+  }, 8000);
+  unsub.offers = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
+    if (!snap.metadata?.fromCache) { clearTimeout(offersTimer); mostraErroreAnnunci(null); }
     homeOffers = snap.docs.map((d) => ({ id: d.id, data: d.data({ serverTimestamps: 'estimate' }) }));
     homeOffers.forEach((o) => state.offers.set(o.id, o.data));
     homeHasMore = snap.size >= lim;
     renderOffers();
-  }, (e) => {
+  }, async (e) => {
+    clearTimeout(offersTimer);
     reportError('loadOffers', e);
-    if (e.code === 'failed-precondition') {
-      $('item-list-bene').innerHTML = `<p class="text-sm text-red-600">Manca l'indice Firestore per gli annunci. L'amministratore deve crearlo (vedi LEGGIMI).</p>`;
-    }
+    if (e.code !== 'failed-precondition' && await bloccoPubblicita()) return;
+    mostraErroreAnnunci(e.code === 'failed-precondition'
+      ? 'Manca l\'indice Firestore per gli annunci: l\'amministratore deve crearlo (vedi LEGGIMI).'
+      : `Non è stato possibile caricare gli annunci: ${String(friendlyError(e)).replace(/\.$/, '')}.`);
   });
 }
+
+// ---------- Blocco pubblicità (AdBlock, uBlock, Brave Shields…) ----------
+// Alcune estensioni bloccano i server di Firebase: annunci e chat non arrivano.
+// Prova: i file di Google (gstatic) si caricano ma il server del database no -> è un blocco del browser.
+let esitoBlocco = null;
+async function raggiungibile(url) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    await fetch(url, { mode: 'no-cors', cache: 'no-store', signal: ctrl.signal });
+    clearTimeout(t);
+    return true;
+  } catch (_) { return false; }
+}
+async function bloccoPubblicita() {
+  if (esitoBlocco === null) {
+    esitoBlocco = (async () => {
+      if (navigator.onLine === false) return false;
+      const progetto = encodeURIComponent('projects/' + (db?.app?.options?.projectId || 'x') + '/databases/(default)');
+      const [google, database] = await Promise.all([
+        raggiungibile('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js'),
+        raggiungibile(`https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel?database=${progetto}&VER=8&RID=prova&zx=${Date.now()}`)
+      ]);
+      return google && !database;
+    })();
+  }
+  const bloccato = await esitoBlocco;
+  if (bloccato) {
+    mostraAvvisoBlocco();
+    logEvent('adblock_detected', { ua: navigator.userAgent.slice(0, 120) }, 'warn');
+  } else esitoBlocco = null;   // nessun blocco: la prossima volta si riprova da capo
+  return bloccato;
+}
+function mostraAvvisoBlocco() {
+  const box = $('offers-error');
+  if (!box) return;
+  box.classList.remove('hidden');
+  box.classList.add('offers-adblock');
+  box.innerHTML = `<p><b>🛑 Un blocco della pubblicità sta bloccando Rikeka</b></p>
+    <p>Un'estensione come <b>AdBlock, uBlock Origin, AdGuard</b> o la protezione di <b>Brave/Opera</b> impedisce di caricare annunci e chat.
+    Rikeka non mostra pubblicità: puoi disattivarlo solo per questo sito senza rischi.</p>
+    <ol>
+      <li>Clicca l'icona dell'estensione in alto a destra, accanto all'indirizzo (es. la mano rossa di AdBlock o lo scudo di uBlock/Brave).</li>
+      <li>Scegli <b>«Non eseguire su questo sito»</b>, <b>«Disattiva su rikeka.it»</b> o il pulsante di accensione blu.</li>
+      <li>Premi <b>Ricarica</b> qui sotto.</li>
+    </ol>
+    <div class="offers-error-actions"><button type="button" onclick="location.reload()">↻ Ricarica</button></div>`;
+}
+
+// Riquadro rosso in Home con "Riprova" e "Ripara l'app" (null = nasconde)
+function mostraErroreAnnunci(testo) {
+  const box = $('offers-error');
+  if (!box) return;
+  box.classList.remove('offers-adblock');
+  box.classList.toggle('hidden', !testo);
+  if (!testo) { box.replaceChildren(); return; }
+  box.innerHTML = `<p>⚠️ ${esc(testo)}</p>
+    <div class="offers-error-actions">
+      <button type="button" onclick="riprovaAnnunci()">↻ Riprova</button>
+      <button type="button" onclick="riparaApp()">🧹 Ripara l'app</button>
+    </div>`;
+}
+window.riprovaAnnunci = function () {
+  mostraErroreAnnunci(null);
+  if (searchTerms.length) runSearch(); else loadOffers();
+};
+// Svuota la memoria del browser per questo sito (dati e vecchia versione dell'app) e ricarica
+window.riparaApp = async function () {
+  if (!confirm('Ripara l\'app: cancello la memoria di Rikeka in questo browser e ricarico la pagina. Resterai collegato. Procedo?')) return;
+  logEvent('app_repair', {});
+  await svuotaMemoriaLocale();
+  try {
+    const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
+    await Promise.all(regs.map((r) => r.unregister()));
+    const chiavi = await caches?.keys?.() || [];
+    await Promise.all(chiavi.map((k) => caches.delete(k)));
+  } catch (e) { console.warn('Pulizia cache:', e); }
+  location.reload();
+};
 
 // ---------- Ricerca ----------
 let searchTerms = [];          // termini cercati (normalizzati)
@@ -1194,6 +1322,7 @@ function loadMyOffers(uid) {
       updateProfileTabIndicator();
     }
     renderMyOffers();
+    renderStorico();
   }, (e) => reportError('loadMyOffers', e));
 }
 
@@ -1325,13 +1454,13 @@ window.closeFeedbackModal = function () {
 // --- Passo 1: chi regala segna "consegnato" (nessun KP si muove ancora) ---
 window.markDelivered = async function (docId) {
   const o = state.offers.get(docId);
-  if (!confirm(`Confermi di aver consegnato "${o?.title || 'l\'annuncio'}" a ${o?.reservedByName || 'chi lo riceve'}?\n\n` +
-               'I KP ti verranno accreditati quando l\'altra persona confermerà di averlo ricevuto.')) return;
+  if (!confirm(`Sei con ${o?.reservedByName || 'chi lo riceve'} e stai per consegnare "${o?.title || 'l\'annuncio'}"?\n\n` +
+               'Dopo OK chiedigli di confermare la ricezione dal suo telefono: consegna l\'oggetto solo quando vedi la conferma ✅. In quel momento riceverai i KP.')) return;
   try {
     await updateDoc(doc(db, 'offerte', docId), { status: 'consegnato', deliveredAt: serverTimestamp(), aiutoRichiesto: false });
     logEvent('offer_delivered', { offerId: docId, buyerId: o?.reservedBy || null });
     notify('delivered', { offerId: docId });
-    postChatEvent(docId, '📦 Consegna segnata: conferma la ricezione qui sopra');
+    postChatEvent(docId, '📦 Consegna segnata: conferma la ricezione qui sopra, poi riceverai l\'oggetto');
   } catch (e) {
     reportError('markDelivered', e, { offerId: docId });
     alert('Operazione non riuscita: ' + friendlyError(e));
@@ -1409,9 +1538,10 @@ window.submitFeedback = async function (feedbackType) {
     logEvent('exchange_completed', summary, feedbackType === 'negativo' ? 'warn' : 'info');
     repCache.delete(summary.giverId);
     notify('concluded', { offerId: docId });
-    postChatEvent(docId, `✅ Scambio concluso: ${summary.kp} KP trasferiti. Grazie!`);
-    alert(`Scambio concluso! Grazie: ${summary.kp} KP sono passati a chi ti ha aiutato.` +
-      (summary.bonusB > 0 ? `\n\n🎁 Era il tuo primo scambio: hai ricevuto anche il bonus di benvenuto di ${summary.bonusB} KP!` : ''));
+    postChatEvent(docId, `✅ Ricezione confermata: ${summary.kp} KP trasferiti. Ora puoi consegnare l'oggetto`);
+    alert(`Ricezione confermata! ${summary.kp} KP sono passati a chi ti ha aiutato: ora può lasciarti l'oggetto.` +
+      (summary.bonusB > 0 ? `\n\n🎁 Era il tuo primo scambio: hai ricevuto anche il bonus di benvenuto di ${summary.bonusB} KP!` : '') +
+      `\n\nSe scopri un problema hai ${ORE_CONTESTAZIONE} ore per segnalarlo: Profilo → Scambi conclusi, oppure qui in chat.`);
   } catch (e) {
     reportError('submitFeedback', e, { offerId: docId });
     alert('Scambio non concluso: ' + friendlyError(e));
@@ -1424,9 +1554,9 @@ window.submitFeedback = async function (feedbackType) {
 function loadToReceive(uid) {
   const q = query(collection(db, 'offerte'), where('reservedBy', '==', uid));
   unsub.toReceive = onSnapshot(q, (snap) => {
-    toReceive = snap.docs
-      .map((d) => ({ id: d.id, data: d.data({ serverTimestamps: 'estimate' }) }))
-      .filter((o) => ['in_trattativa', 'consegnato'].includes(o.data.status));
+    const tutti = snap.docs.map((d) => ({ id: d.id, data: d.data({ serverTimestamps: 'estimate' }) }));
+    toReceive = tutti.filter((o) => ['in_trattativa', 'consegnato'].includes(o.data.status));
+    ricevutiConclusi = tutti.filter((o) => o.data.status === 'concluso');
     let nuovaConsegna = false;
     toReceive.forEach((o) => {
       state.offers.set(o.id, o.data);
@@ -1438,6 +1568,7 @@ function loadToReceive(uid) {
       updateProfileTabIndicator();
     }
     renderToReceive();
+    renderStorico();
   }, (e) => reportError('loadToReceive', e));
 }
 
@@ -1447,14 +1578,14 @@ function renderToReceive() {
   $('to-receive-section').classList.toggle('hidden', !toReceive.length);
   box.innerHTML = toReceive.map(({ id, data: o }) => {
     const action = o.status === 'consegnato'
-      ? `<p class="text-xs text-blue-700 mt-1">${esc(o.ownerName)} ha segnato la consegna. L'hai ricevuto?</p>
-         <button onclick="confirmReceived('${sid(id)}')" class="mt-2 w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 text-sm font-medium rounded-lg">✓ Sì, l'ho ricevuto</button>
+      ? `<p class="text-xs text-blue-700 mt-1">${esc(o.ownerName)} è pronto a consegnartelo: conferma quando ce l'hai davanti.</p>
+         <button onclick="confirmReceived('${sid(id)}')" class="mt-2 w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 text-sm font-medium rounded-lg">✓ Confermo la ricezione</button>
          <button onclick="notReceived('${sid(id)}')" class="mt-1 w-full text-xs text-red-600 hover:underline">Non l'ho ricevuto</button>`
       : `<p class="text-xs text-gray-500 mt-1">Riservato per te: accordati in chat con ${esc(o.ownerName)} per la consegna.</p>`;
     return `
-      <div class="p-3 border border-gray-200 rounded-lg text-left">
+      <div class="p-3 border rounded-lg text-left ${o.status === 'consegnato' ? 'storico-urgente' : 'border-gray-200'}">
         <div class="flex justify-between items-center gap-2">
-          <span class="font-medium text-sm text-gray-800 truncate">${esc(o.title)}</span>
+          <span class="font-medium text-sm text-gray-800 truncate">${o.status === 'consegnato' ? '👉 ' : ''}${esc(o.title)}</span>
           <span class="text-xs font-bold text-amber-700 whitespace-nowrap">${o.cpValue} KP</span>
         </div>
         <div class="mt-1">${statusTag(o.status)}</div>
@@ -1759,11 +1890,12 @@ function renderOffers() {
   const lista = annunciVisibili();
   kmAnnunci.clear();
 
+  const filtrati = { bene: 0, servizio: 0 };
   lista.forEach(({ id, data: o, km }) => {
     kmAnnunci.set(id, km);
     const cp = Number(o.cpValue) || 0;
     const affordable = state.isAdmin || state.karma === null || state.karma >= cp;
-    if (onlyAffordable && o.ownerId !== me.uid && !affordable) return;
+    if (onlyAffordable && o.ownerId !== me.uid && !affordable) { filtrati[o.type === 'servizio' ? 'servizio' : 'bene']++; return; }
     const info = infoAnnuncio(id, o, km);
     if (!info) return;
     if (info.bene) beni += info.card; else servizi += info.card;
@@ -1775,8 +1907,11 @@ function renderOffers() {
   const vuoto = (tipo) => cerco
     ? `Nessun ${tipo === 'bene' ? 'bene' : 'servizio'} trovato${searchTerms.length ? ` per «${esc($('search-input').value.trim())}»` : ''}. Prova con un'altra parola o togli i filtri.`
     : `Nessun ${tipo === 'bene' ? 'bene' : 'servizio'} disponibile.`;
-  $('empty-bene').textContent = vuoto('bene');
-  $('empty-servizio').textContent = vuoto('servizio');
+  const vuotoFiltro = (tipo) => filtrati[tipo]
+    ? ` ${filtrati[tipo] === 1 ? '1 annuncio è nascosto perché costa' : `${filtrati[tipo]} annunci sono nascosti perché costano`} più dei tuoi ${state.karma} KP: togli la spunta «Mostra solo ciò che posso permettermi» per vederli.`
+    : '';
+  $('empty-bene').textContent = vuoto('bene') + vuotoFiltro('bene');
+  $('empty-servizio').textContent = vuoto('servizio') + vuotoFiltro('servizio');
   $('empty-bene').classList.toggle('hidden', !!beni);
   $('empty-servizio').classList.toggle('hidden', !!servizi);
   $('load-more').classList.toggle('hidden', !homeHasMore);
@@ -1821,7 +1956,7 @@ function renderMyOffers() {
     let note = '';
     if (o.status === 'in_verifica') note = '<p class="text-xs text-purple-700 mt-1">In attesa di verifica da parte di un amministratore.</p>';
     if (o.status === 'rifiutato') note = `<p class="text-xs text-red-600 mt-1">Motivo: ${esc(o.motivoRifiuto || 'non indicato')}. Puoi eliminarlo e ripubblicarlo con dati corretti.</p>`;
-    if (o.status === 'consegnato') note = `<p class="text-xs text-blue-700 mt-1">In attesa che ${esc(o.reservedByName || 'chi riceve')} confermi di averlo ricevuto: poi riceverai ${o.cpValue} KP.</p>`;
+    if (o.status === 'consegnato') note = `<p class="text-xs text-blue-700 mt-1">Aspetta che ${esc(o.reservedByName || 'chi riceve')} confermi la ricezione dal suo telefono prima di lasciargli l'oggetto: poi riceverai ${o.cpValue} KP.</p>`;
     if ((o.reportCount || 0) >= state.catalog.sogliaSegnalazioni || o.nascosto) note += '<p class="text-xs text-red-600 mt-1">Nascosto per segnalazioni, in revisione.</p>';
     const canDelete = ['disponibile', 'in_verifica', 'rifiutato'].includes(o.status);
     return `
@@ -1836,6 +1971,134 @@ function renderMyOffers() {
       </div>`;
   }).join('');
 }
+
+// ---------- Storico: scambi conclusi e giudizi (dati e ricevuti) ----------
+const GIUDIZIO = { positivo: '👍 positivo', negativo: '👎 negativo' };
+function renderStorico() {
+  const box = $('storico');
+  if (!box) return;
+  const quando = (o) => tsToDate(o.completionDate)?.getTime() || 0;
+  const voci = [
+    ...myOffers.filter((o) => o.data.status === 'concluso').map((o) => ({ ...o, regalato: true })),
+    ...ricevutiConclusi.map((o) => ({ ...o, regalato: false }))
+  ].sort((a, b) => quando(b.data) - quando(a.data));
+  // giudizi che devo ancora dare (solo chi ha regalato: chi riceve giudica quando conferma)
+  const daDare = voci.filter((v) => v.regalato && v.data.reservedBy && !v.data.feedbackGiver).length;
+  $('storico-section').classList.toggle('hidden', !voci.length);
+  $('storico-da-dare').classList.toggle('hidden', !daDare);
+  $('storico-da-dare').textContent = daDare === 1
+    ? '⭐ Hai 1 giudizio da dare: com\'è andata con chi ha ricevuto il tuo annuncio?'
+    : `⭐ Hai ${daDare} giudizi da dare a chi ha ricevuto i tuoi annunci.`;
+  box.innerHTML = voci.slice(0, 30).map(({ id, data: o, regalato }) => {
+    const data = tsToDate(o.completionDate)?.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }) || '';
+    const altro = esc(regalato ? (o.reservedByName || 'chi ha ricevuto') : (o.ownerName || 'chi ha regalato'));
+    const ricevuto = regalato ? o.feedback : o.feedbackGiver;   // giudizio che ho ricevuto io
+    const dato = regalato ? o.feedbackGiver : o.feedback;       // giudizio che ho dato io
+    let mio;
+    if (dato) mio = `<span>Il tuo giudizio: <b>${GIUDIZIO[dato] || '—'}</b></span>`;
+    else if (regalato && o.reservedBy) mio = `<span class="storico-attesa">Com'è andata con ${altro}?</span>
+        <span class="storico-btns"><button class="deal-btn deal-primary" onclick="rateReceiver('${sid(id)}', 'positivo')">👍 Positivo</button>
+        <button class="deal-btn deal-danger" onclick="rateReceiver('${sid(id)}', 'negativo')">👎 Negativo</button></span>`;
+    else mio = '<span class="text-gray-400">Il tuo giudizio: non dato</span>';
+    return `<div class="storico-row${!dato && regalato && o.reservedBy ? ' storico-urgente' : ''}">
+      <div class="storico-top">
+        <span class="storico-titolo">${regalato ? '🎁' : '📦'} ${esc(o.title)}</span>
+        <span class="storico-kp ${regalato ? 'kp-piu' : 'kp-meno'}">${regalato ? '+' : '−'}${Number(o.cpValue) || 0} KP</span>
+      </div>
+      <p class="storico-chi">${regalato ? `Regalato a ${altro}` : `Ricevuto da ${altro}`}${data ? ` · ${data}` : ''}${o.chiusoDaAdmin ? ' · chiuso da un amministratore' : ''}</p>
+      <p class="storico-giudizi"><span>Giudizio ricevuto: <b>${ricevuto ? GIUDIZIO[ricevuto] : '<span class="text-gray-400">non ancora dato</span>'}</b></span>${mio}</p>
+      ${contestazioni.has(id) ? `<p class="storico-contest">${testoContestazione(contestazioni.get(id), regalato, regalato ? (o.reservedByName || 'chi ha ricevuto') : (o.ownerName || 'chi ha regalato'))}</p>`
+        : (!regalato && finestraSegnalazione(o) ? `<button class="storico-segnala" onclick="apriContestazione('${sid(id)}')">⚠️ Problemi con l'oggetto? Segnalalo entro ${esc(finestraSegnalazione(o))}</button>` : '')}
+    </div>`;
+  }).join('');
+  aggiornaPallinoGiudizi(daDare);
+}
+function aggiornaPallinoGiudizi(n) {
+  giudiziDaDare = n;
+  updateProfileTabIndicator();
+}
+
+// ---------- Contestazioni: chi riceve segnala un problema entro 48 ore ----------
+const ORE_CONTESTAZIONE = 48;
+const TIPI_CONTESTAZIONE = {
+  rotto: 'rotto o danneggiato', non_funziona: 'non funziona', pericoloso: 'pericoloso (surriscaldato, ha preso fuoco…)',
+  diverso: 'diverso dalla descrizione', non_ricevuto: 'mai ricevuto', servizio: 'servizio non svolto o svolto male', altro: 'altro'
+};
+// Fino a quando si può segnalare (testo), oppure null se le 48 ore sono passate
+function finestraSegnalazione(o) {
+  const d = tsToDate(o?.completionDate);
+  if (!d) return null;
+  const fine = new Date(d.getTime() + ORE_CONTESTAZIONE * 3600e3);
+  if (Date.now() >= fine.getTime() - 60e3) return null;
+  return fine.toLocaleString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+}
+function testoContestazione(c, isOwner, altro) {
+  const chi = isOwner ? esc(altro) + ' ha' : 'Hai';
+  const kp = `${Number(c.cpValue) || 0} KP`;
+  const nota = c.nota ? ` Nota dell'amministratore: «${esc(c.nota)}».` : '';
+  if (c.stato === 'aperta') return `⚠️ <b>${chi} segnalato un problema</b> (${esc(TIPI_CONTESTAZIONE[c.tipo] || 'altro')}): un amministratore sta valutando.`;
+  if (c.stato === 'respinta') return `⚖️ Segnalazione valutata da un amministratore: <b>respinta</b>, i KP restano dove sono.${nota}`;
+  const storno = c.stato === 'rimborso_storno';
+  return `⚖️ Segnalazione accolta: <b>${isOwner ? `${esc(altro)} ha riavuto ${kp}` : `ti sono stati restituiti ${kp}`}</b>${storno ? (isOwner ? ` e ti sono stati tolti ${kp}` : ` (tolti a ${esc(altro)})`) : ''}.${nota}`;
+}
+
+function loadContestazioni(uid) {
+  const agg = (ruolo) => (snap) => {
+    [...contestazioni.entries()].forEach(([id, c]) => { if (c._ruolo === ruolo) contestazioni.delete(id); });
+    snap.docs.forEach((d) => contestazioni.set(d.id, { ...d.data(), _ruolo: ruolo }));
+    renderStorico();
+    if (chatCtx?.offerId) renderChatDeal();
+  };
+  unsub.contestB = onSnapshot(query(collection(db, 'contestazioni'), where('buyerId', '==', uid)), agg('b'), (e) => reportError('loadContestazioni', e));
+  unsub.contestO = onSnapshot(query(collection(db, 'contestazioni'), where('ownerId', '==', uid)), agg('o'), (e) => reportError('loadContestazioni', e));
+}
+
+let contestCtx = null;
+window.apriContestazione = function (offerId) {
+  const o = state.offers.get(offerId) || ricevutiConclusi.find((x) => x.id === offerId)?.data;
+  if (!o) return;
+  if (!finestraSegnalazione(o)) return alert(`Sono passate più di ${ORE_CONTESTAZIONE} ore dalla conclusione dello scambio: non è più possibile segnalare problemi.`);
+  if (contestazioni.has(offerId)) return alert('Hai già segnalato un problema per questo scambio.');
+  contestCtx = { offerId, o };
+  $('contest-offer').textContent = `«${o.title}» da ${o.ownerName || 'chi ha regalato'} · ${o.cpValue} KP · puoi segnalare fino a ${finestraSegnalazione(o)}`;
+  document.querySelectorAll('input[name="contest-tipo"]').forEach((r) => { r.checked = false; r.onchange = window.aggiornaContestazione; });
+  $('contest-testo').value = '';
+  window.aggiornaContestazione();
+  $('contest-modal').style.display = 'flex';
+};
+window.chiudiContestazione = function () { $('contest-modal').style.display = 'none'; contestCtx = null; };
+window.aggiornaContestazione = function () {
+  const testo = $('contest-testo').value.trim();
+  $('contest-count').textContent = $('contest-testo').value.length;
+  $('contest-send').disabled = testo.length < 10 || !document.querySelector('input[name="contest-tipo"]:checked');
+};
+window.inviaContestazione = async function () {
+  const me = auth.currentUser;
+  if (!contestCtx || !me) return;
+  const { offerId, o } = contestCtx;
+  const tipo = document.querySelector('input[name="contest-tipo"]:checked')?.value;
+  const testo = $('contest-testo').value.trim();
+  if (!tipo || testo.length < 10) return;
+  const vietata = parolaVietata(testo);
+  if (vietata) return alert(`⛔ Il testo contiene parole non consentite («${vietata}»): correggilo e riprova.`);
+  $('contest-send').disabled = true;
+  try {
+    await setDoc(doc(db, 'contestazioni', offerId), {
+      offerId, buyerId: me.uid, buyerName: (me.displayName || 'Utente').slice(0, 80),
+      ownerId: o.ownerId, ownerName: String(o.ownerName || 'Utente').slice(0, 80), titolo: o.title, cpValue: o.cpValue,
+      tipo, testo, stato: 'aperta', createdAt: serverTimestamp()
+    });
+    logEvent('dispute_opened', { offerId, tipo, kp: o.cpValue }, 'warn');
+    notify('dispute', { offerId });
+    postChatEvent(offerId, '⚠️ Segnalato un problema su questo scambio: un amministratore lo valuterà');
+    window.chiudiContestazione();
+    alert('Segnalazione inviata. Un amministratore la valuterà e deciderà se restituirti i KP: vedrai l\'esito nel Profilo e in chat.');
+  } catch (e) {
+    reportError('inviaContestazione', e, { offerId });
+    alert('Segnalazione non inviata: ' + friendlyError(e));
+    $('contest-send').disabled = false;
+  }
+};
 
 // ---------- 13. PROFILO ----------
 function loadProfileData(uid) {
@@ -1896,8 +2159,11 @@ function loadProfileData(uid) {
       <p class="text-sm text-gray-500 mb-1">Punti Karma (KP)</p>
       ${Number.isInteger(data.bonusPrimoScambio) && data.bonusPrimoScambio > 0 ? `<p class="bonus-attesa">🎁 +${data.bonusPrimoScambio} KP in arrivo al tuo primo scambio concluso</p>` : ''}
       <p id="kp-hint" class="text-xs text-gray-500 mb-4">${state.isAdmin ? 'Puoi richiedere e pubblicare senza limiti di KP.' : `Puoi richiedere beni e servizi fino a ${karma} KP. Regala per guadagnarne altri.`}</p>
-      <p class="text-xl font-semibold text-gray-700">${state.completedSwaps}</p>
-      <p class="text-xs text-gray-500">Scambi completati</p>`;
+      <div class="profile-stats">
+        <div><p class="text-xl font-semibold text-gray-700">${state.completedSwaps}</p><p class="text-xs text-gray-500">Scambi completati</p></div>
+        <div><p class="text-xl font-semibold text-green-700">👍 ${Number(data.fbPos) || 0}</p><p class="text-xs text-gray-500">Giudizi positivi</p></div>
+        <div><p class="text-xl font-semibold text-red-600">👎 ${Number(data.fbNeg) || 0}</p><p class="text-xs text-gray-500">Giudizi negativi</p></div>
+      </div>`;
     $('profile-name-header').textContent = data.displayName || auth.currentUser?.displayName || 'Utente Rikeka';
     renderOffers();
     updateValuePreview();
