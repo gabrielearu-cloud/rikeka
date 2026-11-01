@@ -88,11 +88,11 @@
       </div>
       <div id="home-bene" class="home-tab-content p-4">
         <p id="empty-bene" class="text-center text-gray-500 mt-8 hidden">Nessun bene disponibile.</p>
-        <div id="item-list-bene" class="grid grid-cols-1 gap-4"></div>
+        <div id="item-list-bene" class="ad-list"></div>
       </div>
       <div id="home-servizio" class="home-tab-content p-4 hidden">
         <p id="empty-servizio" class="text-center text-gray-500 mt-8 hidden">Nessun servizio disponibile.</p>
-        <div id="item-list-servizio" class="grid grid-cols-1 gap-4"></div>
+        <div id="item-list-servizio" class="ad-list"></div>
       </div>
       <div class="px-4 pb-6">
         <button id="load-more" onclick="loadMoreOffers()" class="hidden w-full py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Carica altri annunci</button>
@@ -545,6 +545,16 @@
       <li>Conferma: l'icona di Rikeka comparirà tra le tue app. Aprila da lì e attiva le notifiche dal Profilo.</li>
     </ol>
     <button type="button" onclick="chiudiIstruzioniInstall()" class="w-full mt-4 py-3 rounded-md text-sm font-medium text-white bg-green-600">Ho capito</button>
+  </div>
+</div>
+
+<!-- FOGLIO: DETTAGLIO ANNUNCIO -->
+<div id="offer-sheet" class="modal-overlay sheet-overlay" onclick="chiudiAnnuncio()">
+  <div class="sheet offer-sheet" role="dialog" aria-label="Dettaglio annuncio" onclick="event.stopPropagation()">
+    <div class="offer-sheet-handle"></div>
+    <button type="button" class="sheet-close offer-sheet-close" onclick="chiudiAnnuncio()" aria-label="Chiudi">✕</button>
+    <div id="offer-sheet-body" class="offer-sheet-body"
+         onclick="if(event.target.closest('button') && !event.target.closest('.offer-zone-link')) setTimeout(chiudiAnnuncio, 0)"></div>
   </div>
 </div>
 
