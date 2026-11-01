@@ -52,7 +52,7 @@ service cloud.firestore {
     // Testo senza parole non ammesse (stesso elenco di js/filtro.js, a parole intere).
     // Tutto cio' che non e' una lettera diventa uno spazio, cosi' anche gli a-capo.
     function testoPulito(t) {
-      return !(' ' + t.lower().replace('[^a-z]+', ' ') + ' ').matches('.* (cazzo|cazzi|cazzata|cazzate|cazzone|cazzoni|cazzuto|minchia|minchiata|minchiate|minchione|merda|merde|merdoso|merdosa|merdaccia|stronzo|stronza|stronzi|stronze|stronzata|stronzate|vaffanculo|fanculo|affanculo|culo|inculare|inculato|inculata|puttana|puttane|puttanata|puttanate|puttaniere|troia|troie|troione|zoccola|zoccole|mignotta|mignotte|coglione|coglioni|coglionata|coglionate|figa|pompino|pompini|sborra|sborrare|segaiolo|bastardo|bastarda|bastardi|bastarde|pirla|fottere|fottuto|fottuta|fottuti|fottiti|sticazzi|troiona|puttanone|anal|anale|porno|porn|pornografia|pornografico|tette|zinne|dildo|escort|milf|hentai|orgia|orge|scopata|scopate|trombare|trombata|porcodio|porco dio|dio porco|diocane|dio cane|dio boia|porca madonna|madonna puttana|frocio|froci|ricchione|ricchioni|negro|negri|negra|negre|mongoloide|terrone|terroni|fuck|fucking|fucker|motherfucker|shit|bitch|cunt|asshole|nigger|faggot|pussy|cock|whore|slut) .*');
+      return !(' ' + t.lower().replace('[^a-z]+', ' ') + ' ').matches('.* (cazzo|cazzi|cazzata|cazzate|cazzone|cazzoni|cazzuto|minchia|minchiata|minchiate|minchione|merda|merde|merdoso|merdosa|merdaccia|stronzo|stronza|stronzi|stronze|stronzata|stronzate|vaffanculo|fanculo|affanculo|culo|inculare|inculato|inculata|puttana|puttane|puttanata|puttanate|puttaniere|troia|troie|troione|zoccola|zoccole|mignotta|mignotte|coglione|coglioni|coglionata|coglionate|figa|pompino|pompini|sborra|sborrare|segaiolo|bastardo|bastarda|bastardi|bastarde|pirla|fottere|fottuto|fottuta|fottuti|fottiti|sticazzi|troiona|puttanone|anal|anale|porno|porn|pornografia|pornografico|tette|zinne|dildo|escort|milf|hentai|orgia|orge|scopata|scopate|trombare|trombata|porcodio|porcoddio|diocan|mannaggia dio|mannaggiadio|mannaggia cristo|mannaggiacristo|mannaggia la madonna|mannaggialamadonna|frocio|froci|ricchione|ricchioni|negro|negri|negra|negre|mongoloide|terrone|terroni|fuck|fucking|fucker|motherfucker|shit|bitch|cunt|asshole|nigger|faggot|pussy|cock|whore|slut|dio cane|diocane|cane dio|canedio|dio can|dio porco|dioporco|porco dio|dio porcone|dioporcone|porcone dio|porconedio|dio porcaccio|dioporcaccio|porcaccio dio|porcacciodio|dio maiale|diomaiale|maiale dio|maialedio|dio bestia|diobestia|bestia dio|bestiadio|dio boia|dioboia|boia dio|boiadio|dio ladro|dioladro|ladro dio|ladrodio|dio ladrone|dioladrone|ladrone dio|ladronedio|dio merda|diomerda|merda dio|merdadio|dio schifoso|dioschifoso|schifoso dio|schifosodio|dio infame|dioinfame|infame dio|infamedio|dio bastardo|diobastardo|bastardo dio|bastardodio|dio impestato|dioimpestato|impestato dio|impestatodio|dio assassino|dioassassino|assassino dio|assassinodio|dio lurido|diolurido|lurido dio|luridodio|dio serpente|dioserpente|serpente dio|serpentedio|dio cornuto|diocornuto|cornuto dio|cornutodio|dio maledetto|diomaledetto|maledetto dio|maledettodio|dio lupo|diolupo|lupo dio|lupodio|dio verme|dioverme|verme dio|vermedio|dio stronzo|diostronzo|stronzo dio|stronzodio|cristo cane|cristocane|cane cristo|canecristo|cristo can|cristocan|cristo porco|cristoporco|porco cristo|porcocristo|cristo porcone|cristoporcone|porcone cristo|porconecristo|cristo porcaccio|cristoporcaccio|porcaccio cristo|porcacciocristo|cristo maiale|cristomaiale|maiale cristo|maialecristo|cristo bestia|cristobestia|bestia cristo|bestiacristo|cristo boia|cristoboia|boia cristo|boiacristo|cristo ladro|cristoladro|ladro cristo|ladrocristo|cristo ladrone|cristoladrone|ladrone cristo|ladronecristo|cristo merda|cristomerda|merda cristo|merdacristo|cristo schifoso|cristoschifoso|schifoso cristo|schifosocristo|cristo infame|cristoinfame|infame cristo|infamecristo|cristo bastardo|cristobastardo|bastardo cristo|bastardocristo|cristo impestato|cristoimpestato|impestato cristo|impestatocristo|cristo assassino|cristoassassino|assassino cristo|assassinocristo|cristo lurido|cristolurido|lurido cristo|luridocristo|cristo serpente|cristoserpente|serpente cristo|serpentecristo|cristo cornuto|cristocornuto|cornuto cristo|cornutocristo|cristo maledetto|cristomaledetto|maledetto cristo|maledettocristo|cristo lupo|cristolupo|lupo cristo|lupocristo|cristo verme|cristoverme|verme cristo|vermecristo|cristo stronzo|cristostronzo|stronzo cristo|stronzocristo|gesu cane|gesucane|cane gesu|canegesu|gesu can|gesucan|gesu porco|gesuporco|porco gesu|porcogesu|gesu porcone|gesuporcone|porcone gesu|porconegesu|gesu porcaccio|gesuporcaccio|porcaccio gesu|porcacciogesu|gesu maiale|gesumaiale|maiale gesu|maialegesu|gesu bestia|gesubestia|bestia gesu|bestiagesu|gesu boia|gesuboia|boia gesu|boiagesu|gesu ladro|gesuladro|ladro gesu|ladrogesu|gesu ladrone|gesuladrone|ladrone gesu|ladronegesu|gesu merda|gesumerda|merda gesu|merdagesu|gesu schifoso|gesuschifoso|schifoso gesu|schifosogesu|gesu infame|gesuinfame|infame gesu|infamegesu|gesu bastardo|gesubastardo|bastardo gesu|bastardogesu|gesu impestato|gesuimpestato|impestato gesu|impestatogesu|gesu assassino|gesuassassino|assassino gesu|assassinogesu|gesu lurido|gesulurido|lurido gesu|luridogesu|gesu serpente|gesuserpente|serpente gesu|serpentegesu|gesu cornuto|gesucornuto|cornuto gesu|cornutogesu|gesu maledetto|gesumaledetto|maledetto gesu|maledettogesu|gesu lupo|gesulupo|lupo gesu|lupogesu|gesu verme|gesuverme|verme gesu|vermegesu|gesu stronzo|gesustronzo|stronzo gesu|stronzogesu|madonna cagna|madonnacagna|cagna madonna|cagnamadonna|madonna porca|madonnaporca|porca madonna|porcamadonna|madonna maiala|madonnamaiala|maiala madonna|maialamadonna|madonna troia|madonnatroia|troia madonna|troiamadonna|madonna puttana|madonnaputtana|puttana madonna|puttanamadonna|madonna zoccola|madonnazoccola|zoccola madonna|zoccolamadonna|madonna ladra|madonnaladra|ladra madonna|ladramadonna|madonna schifosa|madonnaschifosa|schifosa madonna|schifosamadonna|madonna infame|madonnainfame|infame madonna|infamemadonna|madonna bastarda|madonnabastarda|bastarda madonna|bastardamadonna|madonna impestata|madonnaimpestata|impestata madonna|impestatamadonna|madonna assassina|madonnaassassina|assassina madonna|assassinamadonna|madonna lurida|madonnalurida|lurida madonna|luridamadonna|madonna vacca|madonnavacca|vacca madonna|vaccamadonna|madonna maledetta|madonnamaledetta|maledetta madonna|maledettamadonna|madonna merda|madonnamerda|merda madonna|merdamadonna|madonna bestia|madonnabestia|bestia madonna|bestiamadonna|madonna boia|madonnaboia|boia madonna|boiamadonna|madonna serpente|madonnaserpente|serpente madonna|serpentemadonna|madonna lupa|madonnalupa|lupa madonna|lupamadonna|madonna stronza|madonnastronza|stronza madonna|stronzamadonna) .*');
     }
 
     // Oggi come numero AAAAMMGG (ora UTC), per il limite giornaliero di annunci
@@ -293,8 +293,25 @@ service cloud.firestore {
              && request.resource.data.get('bonusPrimoScambio', 0) == 0)
         );
 
+      // Contestazione accolta da un amministratore (stessa transazione che la chiude):
+      // chi ha ricevuto riavuto i KP; con lo storno vengono tolti a chi ha regalato (mai sotto zero)
+      function adminRimborsa() {
+        let cPath = /databases/$(database)/documents/contestazioni/$(request.resource.data.lastOfferId);
+        let c = get(cPath).data;
+        let dopo = getAfter(cPath).data;
+        let k = resource.data.get('karmaPoints', 0);
+        let nk = request.resource.data.karmaPoints;
+        return isAdmin()
+          && request.resource.data.lastOfferId is string
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['karmaPoints', 'lastOfferId'])
+          && c.stato == 'aperta'
+          && ((c.buyerId == userId && dopo.stato in ['rimborso', 'rimborso_storno'] && nk == k + c.cpValue)
+              || (c.ownerId == userId && dopo.stato == 'rimborso_storno'
+                  && (nk == k - c.cpValue || (k < c.cpValue && nk == 0))));
+      }
+
       allow update: if signedIn() && (profileEdit() || giverGains() || buyerPays() || adminReceives()
-                                       || giverRates() || adminCloses());
+                                       || giverRates() || adminCloses() || adminRimborsa());
       // Diritto alla cancellazione: ognuno puo' eliminare il proprio profilo
       allow delete: if signedIn() && request.auth.uid == userId;
     }
@@ -302,6 +319,46 @@ service cloud.firestore {
     // =================================================================
     // OFFERTE
     // =================================================================
+    // ---- Contestazioni: chi ha ricevuto segnala un problema entro 48 ore dalla conclusione ----
+    // Una sola per scambio (ID = ID dell'annuncio). Decide un amministratore.
+    match /contestazioni/{offerId} {
+      function scambio() {
+        return get(/databases/$(database)/documents/offerte/$(offerId)).data;
+      }
+      allow get, list: if signedIn()
+        && (resource.data.buyerId == request.auth.uid || resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if signedIn()
+        && offerId.matches('^[A-Za-z0-9]{20}$')
+        && request.resource.data.keys().hasOnly(['offerId', 'buyerId', 'buyerName', 'ownerId', 'ownerName', 'titolo',
+                                                 'cpValue', 'tipo', 'testo', 'stato', 'createdAt'])
+        && request.resource.data.offerId == offerId
+        && request.resource.data.buyerId == request.auth.uid
+        && scambio().status == 'concluso'
+        && scambio().get('reservedBy', null) == request.auth.uid
+        && request.time < scambio().completionDate + duration.value(48, 'h')
+        && request.resource.data.ownerId == scambio().ownerId
+        && request.resource.data.cpValue == scambio().cpValue
+        && request.resource.data.titolo == scambio().title
+        && request.resource.data.buyerName is string && request.resource.data.buyerName.size() <= 80
+        && request.resource.data.ownerName is string && request.resource.data.ownerName.size() <= 80
+        && request.resource.data.tipo in ['rotto', 'non_funziona', 'pericoloso', 'diverso', 'non_ricevuto', 'servizio', 'altro']
+        && request.resource.data.testo is string
+        && request.resource.data.testo.size() >= 10
+        && request.resource.data.testo.size() <= 500
+        && testoPulito(request.resource.data.testo)
+        && request.resource.data.stato == 'aperta'
+        && request.resource.data.createdAt == request.time;
+      allow update: if isAdmin()
+        && resource.data.stato == 'aperta'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stato', 'nota', 'decisoDa', 'decisoAt'])
+        && request.resource.data.stato in ['rimborso', 'rimborso_storno', 'respinta']
+        && request.resource.data.decisoDa == request.auth.uid
+        && request.resource.data.decisoAt == request.time
+        && (!('nota' in request.resource.data)
+            || (request.resource.data.nota is string && request.resource.data.nota.size() <= 300));
+      allow delete: if false;
+    }
+
     match /offerte/{offerId} {
 
       function offerPath() {
@@ -730,6 +787,7 @@ service cloud.firestore {
                .hasOnly(['lastMessage', 'lastMessageTimestamp', 'lastMessageSenderId'])
             && request.resource.data.lastMessage is string
             && request.resource.data.lastMessage.size() <= 60
+            && testoPulito(request.resource.data.lastMessage)
             && request.resource.data.lastMessageSenderId == request.auth.uid
             && request.resource.data.lastMessageTimestamp == request.time)
           || nascondiOk()
@@ -751,6 +809,7 @@ service cloud.firestore {
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 1000
+          && testoPulito(request.resource.data.text)
           && request.resource.data.timestamp == request.time;
         allow delete: if signedIn() && request.auth.uid in chatUsers()
           && eliminataDaEntrambi(get(/databases/$(database)/documents/chats/$(chatId)).data);

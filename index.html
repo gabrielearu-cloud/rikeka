@@ -67,6 +67,7 @@
         </div>
         <div id="group-chips" class="filter-chips"></div>
         <p id="search-status" class="search-status"></p>
+        <div id="offers-error" class="offers-error hidden" role="alert"></div>
         <div id="suspended-banner" class="hidden suspended-banner">⛔ Il tuo account è sospeso da un amministratore: puoi consultare gli annunci ma non pubblicare né scrivere in chat.</div>
         <div id="install-banner" class="install-banner hidden">
           <span class="install-icon">📲</span>
@@ -82,7 +83,7 @@
           <button id="tab-btn-servizi" onclick="switchHomeTab('servizio', this)" class="flex-1 py-3 px-4 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-200">Servizi/Aiuto</button>
         </div>
         <label class="flex items-center mt-3 text-sm text-gray-600 cursor-pointer">
-          <input type="checkbox" class="mr-2" onchange="toggleAffordable(this.checked)">
+          <input type="checkbox" id="only-affordable" class="mr-2" autocomplete="off" onchange="toggleAffordable(this.checked)">
           Mostra solo ciò che posso permettermi con i miei KP
         </label>
       </div>
@@ -268,6 +269,12 @@
         <h3 class="text-sm font-semibold text-gray-700 mb-2">I miei annunci</h3>
         <div id="my-offers" class="space-y-2"></div>
       </div>
+      <div id="storico-section" class="hidden w-full px-4 pb-2">
+        <h3 class="text-sm font-semibold text-gray-700 mb-1">Scambi conclusi e giudizi</h3>
+        <p class="text-xs text-gray-500 mb-2">Qui restano tutti i tuoi scambi, con il giudizio che hai dato e quello che hai ricevuto.</p>
+        <p id="storico-da-dare" class="storico-avviso hidden"></p>
+        <div id="storico" class="space-y-2"></div>
+      </div>
       <div class="w-full p-4 space-y-3">
         <button id="admin-btn" onclick="openAdmin()" class="hidden w-full py-3 px-4 rounded-md shadow-lg text-sm font-medium text-white bg-gray-800 hover:bg-gray-900">🛠 Pannello Admin</button>
         <button onclick="handleLogout()" class="w-full py-3 px-4 rounded-md shadow-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700">Logout</button>
@@ -294,6 +301,12 @@
             <button onclick="refreshAdmin()" class="px-3 py-1 text-xs rounded bg-gray-200 hover:bg-gray-300">↻ Aggiorna tutto</button>
           </div>
           <div id="admin-stats" class="grid grid-cols-2 gap-2 text-sm"></div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-1">⚠️ Contestazioni sugli scambi</h3>
+          <p class="text-xs text-gray-500 mb-2">Chi ha ricevuto segnala un problema entro 48 ore. Decidi tu: restituire i KP a chi ha ricevuto (togliendoli o no a chi ha regalato) oppure respingere.</p>
+          <div id="admin-contest" class="space-y-2"></div>
         </div>
 
         <div>
@@ -465,11 +478,12 @@
 <!-- MODAL: CONCLUSIONE SCAMBIO -->
 <div id="feedback-modal" class="modal-overlay" data-doc-id="">
   <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
-    <h3 class="text-lg font-semibold text-gray-800 mb-2">Conferma di aver ricevuto</h3>
+    <h3 class="text-lg font-semibold text-gray-800 mb-2">Conferma la ricezione</h3>
     <p id="feedback-offer-title" class="text-sm text-gray-600 mb-2"></p>
     <p id="feedback-kp-info" class="text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mb-4"></p>
     <p class="text-xs text-gray-500 mb-2">Com'è andato lo scambio? Scegliendo una risposta confermi la ricezione.
       Il giudizio conta nella percentuale 👍 visibile accanto al nome dell'altra persona.</p>
+    <p class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2 mb-3">🛡 Se poi scopri un problema (rotto, non funzionante, diverso dalla descrizione) hai <b>48 ore</b> per segnalarlo: un amministratore valuterà se restituirti i KP.</p>
     <div class="grid grid-cols-2 gap-3">
       <button onclick="submitFeedback('positivo')" class="fb-btn fb-pos">👍<span>Positivo</span></button>
       <button onclick="submitFeedback('negativo')" class="fb-btn fb-neg">👎<span>Negativo</span></button>
@@ -572,6 +586,19 @@
   </div>
 </div>
 
+<!-- INVITO AUTOMATICO: ATTIVA LE NOTIFICHE -->
+<div id="push-modal" class="modal-overlay" style="z-index:250">
+  <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-center">
+    <p class="text-4xl mb-2">🔔</p>
+    <h3 class="text-xl font-bold text-gray-800 mb-2">Attiva le notifiche</h3>
+    <p id="push-modal-app" class="hidden text-sm text-green-700 font-medium mb-2">App installata! Ultimo passo:</p>
+    <p class="text-sm text-gray-600">Così sai subito quando qualcuno ti scrive, quando sei stato scelto per un annuncio e quando c'è uno scambio da confermare, anche ad app chiusa.</p>
+    <p class="text-xs text-gray-500 mt-3">Dopo il tocco il telefono ti chiederà il permesso: scegli <b>Consenti</b>.</p>
+    <button type="button" onclick="attivaDaInvito()" class="w-full mt-5 py-3 rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700">🔔 Attiva le notifiche</button>
+    <button type="button" onclick="rimandaInvitoNotifiche()" class="w-full mt-2 py-2 text-sm text-gray-500 hover:text-gray-700">Più tardi</button>
+  </div>
+</div>
+
 <!-- FOGLIO: ELIMINA CHAT -->
 <div id="chatdel-modal" class="modal-overlay sheet-overlay" onclick="chiudiEliminaChat()">
   <div class="sheet chatdel-sheet" role="dialog" aria-labelledby="chatdel-title" onclick="event.stopPropagation()">
@@ -593,6 +620,29 @@
     <p class="text-xs text-gray-500 mt-1 mb-3">Insieme al testo inviamo la schermata in cui eri e il modello di browser, per capire meglio il problema.</p>
     <button id="bug-send" disabled onclick="sendBugReport()" class="w-full py-3 rounded-md text-sm font-medium text-white bg-green-600 disabled:opacity-50">Invia</button>
     <button onclick="closeBugReport()" class="w-full text-center py-2 mt-2 text-sm text-gray-500 hover:text-gray-800">Annulla</button>
+  </div>
+</div>
+
+<!-- MODAL: PROBLEMA SU UNO SCAMBIO RICEVUTO (entro 48 ore) -->
+<div id="contest-modal" class="modal-overlay" style="z-index:260" onclick="chiudiContestazione()">
+  <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm" onclick="event.stopPropagation()">
+    <h3 class="text-lg font-semibold text-gray-800 mb-1">⚠️ Problema con lo scambio</h3>
+    <p id="contest-offer" class="text-sm text-gray-600 mb-3"></p>
+    <p class="text-xs font-semibold text-gray-700 mb-1">Cosa è successo?</p>
+    <div class="contest-tipi">
+      <label><input type="radio" name="contest-tipo" value="rotto"> Rotto o danneggiato</label>
+      <label><input type="radio" name="contest-tipo" value="non_funziona"> Non funziona</label>
+      <label><input type="radio" name="contest-tipo" value="pericoloso"> Pericoloso (surriscaldato, ha preso fuoco…)</label>
+      <label><input type="radio" name="contest-tipo" value="diverso"> Diverso dalla descrizione</label>
+      <label><input type="radio" name="contest-tipo" value="non_ricevuto"> Non l'ho mai ricevuto</label>
+      <label><input type="radio" name="contest-tipo" value="servizio"> Servizio non svolto o svolto male</label>
+      <label><input type="radio" name="contest-tipo" value="altro"> Altro</label>
+    </div>
+    <textarea id="contest-testo" class="field text-sm mt-3" rows="4" maxlength="500" placeholder="Descrivi il problema: cosa non va, quando te ne sei accorto…" oninput="aggiornaContestazione()"></textarea>
+    <p class="text-xs text-gray-500 mt-1"><span id="contest-count">0</span>/500 · minimo 10 caratteri</p>
+    <p class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2 mt-2">Un amministratore leggerà la segnalazione e deciderà se restituirti i KP. Anche l'altra persona vedrà in chat che hai segnalato un problema.</p>
+    <button id="contest-send" disabled onclick="inviaContestazione()" class="w-full mt-4 py-3 rounded-md text-sm font-medium text-white bg-red-600 disabled:opacity-50">Invia la segnalazione</button>
+    <button onclick="chiudiContestazione()" class="w-full text-center py-2 mt-2 text-sm text-gray-500 hover:text-gray-800">Annulla</button>
   </div>
 </div>
 
