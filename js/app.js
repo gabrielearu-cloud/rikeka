@@ -122,6 +122,7 @@ window.switchHomeTab = function (type, element) {
   $('home-' + type).classList.remove('hidden');
   element.classList.remove('text-gray-700', 'hover:bg-gray-200');
   element.classList.add(type === 'bene' ? 'bg-green-600' : 'bg-blue-600', 'text-white', 'shadow-lg');
+  renderGroupSide();
 };
 
 window.toggleAffordable = function (checked) {
@@ -369,7 +370,7 @@ function updateFotoLabels() {
 }
 
 // Versione dell'app: deve essere uguale a VERSIONE in sw.js (si vede in fondo al Profilo)
-export const APP_VERSIONE = 'rikeka-v33';
+export const APP_VERSIONE = 'rikeka-v33a';
 
 // Anti-flood (gli stessi valori sono in firestore.rules, match /quote)
 const ANNUNCI_INTERVALLO_MS = 31 * 1000;   // 1 secondo di margine sui 30 delle regole
@@ -1273,7 +1274,42 @@ window.setGroupFilter = function (g) {
   renderOffers();
 };
 
+// Menu laterale delle categorie (solo schermi larghi, PC): stesse scelte dei filtri rapidi, con il numero di annunci
+function renderGroupSide() {
+  const box = $('cat-side-list');
+  if (!box) return;
+  const base = searchResults || homeOffers;
+  const conta = new Map();
+  let servizi = 0, beni = 0;
+  base.forEach(({ data: o }) => {
+    if (o.type === 'servizio') { servizi++; return; }
+    beni++;
+    const g = state.catalog.sottocategorie[o.sottocategoria]?.gruppo || 'Altro';
+    conta.set(g, (conta.get(g) || 0) + 1);
+  });
+  const tabServizi = !$('home-servizio')?.classList.contains('hidden');
+  const voce = (attivo, onclick, testo, n, extra = '') =>
+    `<button type="button" class="cat-side-item${attivo ? ' cat-side-on' : ''}" ${extra} onclick="${onclick}"><span>${testo}</span><span class="cat-side-n">${n}</span></button>`;
+  box.innerHTML = voce(!groupFilter && !tabServizi, "scegliCategoriaLaterale('')", '🗂 Tutti i beni', beni)
+    + gruppiOrdinati(state.catalog).map(({ gruppo, icona }) =>
+      voce(groupFilter === gruppo && !tabServizi, 'scegliCategoriaLaterale(this.dataset.g)', `${icona} ${esc(gruppo)}`, conta.get(gruppo) || 0, `data-g="${esc(gruppo)}"`)).join('')
+    + '<hr class="cat-side-sep">'
+    + voce(tabServizi, "scegliCategoriaLaterale('__servizi')", '🤝 Servizi e aiuto', servizi);
+}
+window.scegliCategoriaLaterale = function (g) {
+  if (g === '__servizi') {
+    groupFilter = '';
+    window.switchHomeTab('servizio', $('tab-btn-servizi'));
+  } else {
+    window.switchHomeTab('bene', $('tab-btn-beni'));
+    groupFilter = g;
+  }
+  renderOffers();
+  $('home-screen')?.scrollIntoView?.({ block: 'start' });
+};
+
 function renderGroupChips() {
+  renderGroupSide();
   const box = $('group-chips');
   if (!box) return;
   box.innerHTML = [`<button type="button" class="filter-chip${groupFilter ? '' : ' filter-chip-on'}" onclick="setGroupFilter('')">Tutte</button>`]
@@ -2139,22 +2175,9 @@ function loadProfileData(uid) {
     state.karma = karma;
     $('home-karma-widget').textContent = `${karma} KP`;
 
-    const thresholds = [0, 150, 300, 500, 1000];
-    let level = 1, from = 0, to = 150;
-    for (let i = thresholds.length - 1; i >= 0; i--) {
-      if (karma >= thresholds[i]) { level = i + 1; from = thresholds[i]; to = thresholds[i + 1] ?? thresholds[i]; break; }
-    }
-    const pct = to > from ? Math.min(100, Math.floor(((karma - from) / (to - from)) * 100)) : 100;
     const badge = hasNewProfileUpdate ? '<span class="new-kp-badge ml-2 text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full animate-pulse">NOVITÀ</span>' : '';
 
     $('profile-data').innerHTML = `
-      <div class="mb-6">
-        <div class="flex justify-between items-center mb-1">
-          <span class="text-base font-semibold text-green-600">Livello ${level}</span>
-          <span class="text-sm text-gray-500">${to > from ? `Prossimo livello: ${to} KP` : 'Livello massimo'}</span>
-        </div>
-        <div class="w-full bg-gray-200 rounded-full h-2.5"><div class="bg-green-600 h-2.5 rounded-full" style="width:${pct}%"></div></div>
-      </div>
       <p class="text-3xl font-bold text-gray-900 flex items-center justify-center">${karma} ${badge}</p>
       <p class="text-sm text-gray-500 mb-1">Punti Karma (KP)</p>
       ${Number.isInteger(data.bonusPrimoScambio) && data.bonusPrimoScambio > 0 ? `<p class="bonus-attesa">🎁 +${data.bonusPrimoScambio} KP in arrivo al tuo primo scambio concluso</p>` : ''}
@@ -2163,7 +2186,8 @@ function loadProfileData(uid) {
         <div><p class="text-xl font-semibold text-gray-700">${state.completedSwaps}</p><p class="text-xs text-gray-500">Scambi completati</p></div>
         <div><p class="text-xl font-semibold text-green-700">👍 ${Number(data.fbPos) || 0}</p><p class="text-xs text-gray-500">Giudizi positivi</p></div>
         <div><p class="text-xl font-semibold text-red-600">👎 ${Number(data.fbNeg) || 0}</p><p class="text-xs text-gray-500">Giudizi negativi</p></div>
-      </div>`;
+      </div>
+      ${boxAffidabilita(data)}`;
     $('profile-name-header').textContent = data.displayName || auth.currentUser?.displayName || 'Utente Rikeka';
     renderOffers();
     updateValuePreview();
@@ -2774,12 +2798,56 @@ window.closeCamera = function () {
 
 // ---------- REPUTAZIONE: scambi conclusi e % di giudizi positivi ----------
 
-export function testoReputazione(u) {
-  const num = (x) => (Number.isFinite(Number(x)) ? Math.max(0, Math.floor(Number(x))) : 0);
-  const scambi = num(u?.completedSwaps), pos = num(u?.fbPos), neg = num(u?.fbNeg), tot = pos + neg;
-  if (!scambi && !tot) return '<span class="rep-new">🌱 nuovo</span>';
+// Livelli di affidabilità: salgono con i giudizi positivi ricevuti, se la percentuale di 👍 resta alta
+export const LIVELLI_AFFIDABILITA = [
+  { min: 50, pct: 95, icona: '💎', nome: 'Ambasciatore', cls: 'lv-5' },
+  { min: 25, pct: 90, icona: '🥇', nome: 'Super affidabile', cls: 'lv-4' },
+  { min: 10, pct: 85, icona: '🥈', nome: 'Molto affidabile', cls: 'lv-3' },
+  { min: 3, pct: 80, icona: '🥉', nome: 'Affidabile', cls: 'lv-2' },
+  { min: 1, pct: 0, icona: '🌿', nome: 'In crescita', cls: 'lv-1' }
+];
+const num0 = (x) => (Number.isFinite(Number(x)) ? Math.max(0, Math.floor(Number(x))) : 0);
+export function livelloAffidabilita(u) {
+  const pos = num0(u?.fbPos), neg = num0(u?.fbNeg), tot = pos + neg;
   const pct = tot ? Math.round((pos / tot) * 100) : null;
-  return `${scambi} ${scambi === 1 ? 'scambio' : 'scambi'}${pct === null ? '' : ` · <span class="${pct < 70 ? 'rep-low' : 'rep-ok'}">👍 ${pct}%</span>`}`;
+  if (tot >= 3 && pct < 70) return { icona: '⚠️', nome: 'Da verificare', cls: 'lv-warn', pos, tot, pct, prossimo: null };
+  const i = LIVELLI_AFFIDABILITA.findIndex((l) => pos >= l.min && (pct ?? 0) >= l.pct);
+  const liv = i >= 0 ? LIVELLI_AFFIDABILITA[i] : { icona: '🌱', nome: 'Nuovo', cls: 'lv-0' };
+  // prossimo livello raggiungibile salendo di giudizi positivi
+  const sopra = LIVELLI_AFFIDABILITA.slice(0, i >= 0 ? i : LIVELLI_AFFIDABILITA.length).reverse()
+    .find((l) => !(pos >= l.min && (pct ?? 0) >= l.pct)) || null;
+  return { ...liv, pos, tot, pct, prossimo: sopra };
+}
+
+export function testoReputazione(u) {
+  const scambi = num0(u?.completedSwaps);
+  const lv = livelloAffidabilita(u);
+  if (!scambi && !lv.tot) return '<span class="rep-new">🌱 nuovo</span>';
+  const badge = `<span class="rep-badge ${lv.cls}" title="Affidabilità: ${lv.pos} giudizi positivi su ${lv.tot}">${lv.icona} ${lv.nome}</span>`;
+  return `${badge} · ${scambi} ${scambi === 1 ? 'scambio' : 'scambi'}${lv.pct === null ? '' : ` · <span class="${lv.pct < 70 ? 'rep-low' : 'rep-ok'}">👍 ${lv.pct}%</span>`}`;
+}
+
+// Riquadro "La tua affidabilità" nel Profilo
+function boxAffidabilita(u) {
+  const lv = livelloAffidabilita(u);
+  let prossimo;
+  if (lv.cls === 'lv-warn') prossimo = 'Troppi giudizi negativi: con scambi corretti e giudizi positivi la percentuale risale.';
+  else if (lv.prossimo) {
+    const manca = lv.prossimo.min - lv.pos;
+    const meta = `<b>${lv.prossimo.icona} ${lv.prossimo.nome}</b>`;
+    prossimo = manca > 0
+      ? `Ancora <b>${manca}</b> ${manca === 1 ? 'giudizio positivo' : 'giudizi positivi'} per diventare ${meta}` + (lv.prossimo.pct ? ` (con almeno il ${lv.prossimo.pct}% di 👍)` : '') + '.'
+      : `Per diventare ${meta} serve almeno il ${lv.prossimo.pct}% di giudizi 👍 (ora sei al ${lv.pct}%).`;
+  } else prossimo = 'Hai raggiunto il livello più alto. Grazie!';
+  const scala = [...LIVELLI_AFFIDABILITA].reverse().map((l) =>
+    `<span class="aff-step${l.cls === lv.cls ? ' aff-step-on' : ''}" title="${l.min} giudizi positivi${l.pct ? `, almeno ${l.pct}% di 👍` : ''}">${l.icona}<small>${l.min}+</small></span>`).join('');
+  return `<div class="aff-box">
+    <p class="aff-label">La tua affidabilità</p>
+    <p class="aff-livello"><span class="rep-badge ${lv.cls}">${lv.icona} ${lv.nome}</span></p>
+    <div class="aff-scala">${scala}</div>
+    <p class="aff-next">${prossimo}</p>
+    <p class="aff-hint">Il livello si vede accanto al tuo nome negli annunci e in chat. Sale con i giudizi 👍 che ricevi regalando e ricevendo.</p>
+  </div>`;
 }
 
 async function datiUtente(uid) {
