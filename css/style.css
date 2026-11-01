@@ -586,3 +586,41 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neu
 .offers-error.offers-adblock p + p { margin-top: .35rem; }
 .offers-error.offers-adblock ol { margin: .45rem 0 0 1.1rem; padding: 0; list-style: decimal; display: flex; flex-direction: column; gap: .2rem; }
 .offers-error.offers-adblock .offers-error-actions button { border-color: #fb923c; color: #9a3412; }
+
+/* ---------- v33: suggerimenti nel riquadro "?" ---------- */
+.info-tip { font-size: .8rem; line-height: 1.4; color: #1e3a8a; background: #eff6ff; border-radius: .5rem; padding: .4rem .55rem; }
+
+/* ---------- v33: livelli di affidabilità ---------- */
+.rep-badge { display: inline-block; padding: 0 .4rem; border-radius: 9999px; font-size: .92em; font-weight: 700; white-space: nowrap; line-height: 1.45; }
+.rep-badge.lv-0, .rep-badge.lv-1 { background: #ecfdf5; color: #047857; }
+.rep-badge.lv-2 { background: #fdf2e9; color: #9a3412; }
+.rep-badge.lv-3 { background: #f1f5f9; color: #334155; }
+.rep-badge.lv-4 { background: #fef9c3; color: #854d0e; }
+.rep-badge.lv-5 { background: #e0f2fe; color: #075985; }
+.rep-badge.lv-warn { background: #fef2f2; color: #b91c1c; }
+.aff-box { margin-top: 1rem; padding: .8rem; border-radius: .75rem; border: 1px solid #e5e7eb; background: #fafafa; text-align: center; }
+.aff-label { font-size: .72rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
+.aff-livello { margin: .3rem 0 .5rem; font-size: 1.05rem; }
+.aff-scala { display: flex; justify-content: center; gap: .35rem; }
+.aff-step { display: flex; flex-direction: column; align-items: center; width: 2.6rem; padding: .25rem 0; border-radius: .5rem; font-size: 1.15rem; opacity: .45; filter: grayscale(.6); }
+.aff-step small { font-size: .62rem; color: #6b7280; font-weight: 600; }
+.aff-step-on { opacity: 1; filter: none; background: #fff; box-shadow: 0 0 0 2px #16a34a; }
+.aff-next { margin-top: .55rem; font-size: .8rem; color: #374151; }
+.aff-hint { margin-top: .3rem; font-size: .7rem; color: #9ca3af; }
+
+/* ---------- v33: menu categorie laterale (solo PC) ---------- */
+.cat-side { display: none; }
+@media (min-width: 1024px) {
+  .cat-side { display: block; position: fixed; z-index: 15; top: 5.5rem; width: 15rem;
+    left: max(1rem, calc(50% - 14rem - 15rem - 1.5rem)); max-height: calc(100vh - 7rem); overflow-y: auto;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: .9rem; box-shadow: 0 4px 18px rgba(0,0,0,.06); padding: .7rem; }
+  #group-chips { display: none; }
+}
+.cat-side-title { font-size: .72rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; padding: .1rem .5rem .5rem; }
+.cat-side-item { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: .5rem; padding: .5rem .6rem; border-radius: .55rem;
+  font-size: .88rem; color: #1f2937; text-align: left; cursor: pointer; background: none; border: 0; }
+.cat-side-item:hover { background: #f3f4f6; }
+.cat-side-on { background: #dcfce7 !important; color: #166534; font-weight: 700; }
+.cat-side-n { font-size: .75rem; color: #6b7280; font-weight: 600; min-width: 1.5rem; text-align: right; }
+.cat-side-on .cat-side-n { color: #166534; }
+.cat-side-sep { border: 0; border-top: 1px solid #e5e7eb; margin: .4rem .3rem; }
