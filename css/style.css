@@ -544,3 +544,45 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neu
   padding: .35rem .75rem; border-radius: .75rem; box-shadow: 0 1px 2px rgba(0,0,0,.05);
 }
 .msg-system-time { font-size: .62rem; color: #9ca3af; margin-top: .15rem; }
+
+/* ---------- v33: errore caricamento annunci ---------- */
+.offers-error { margin-top: .6rem; padding: .7rem .8rem; border-radius: .6rem; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: .85rem; line-height: 1.35; }
+.offers-error-actions { display: flex; gap: .5rem; margin-top: .5rem; flex-wrap: wrap; }
+.offers-error-actions button { flex: 1 1 auto; padding: .45rem .7rem; border-radius: .5rem; border: 1px solid #fca5a5; background: #fff; color: #991b1b; font-weight: 600; font-size: .82rem; cursor: pointer; }
+
+/* ---------- v33: barra dello scambio quando tocca a me ---------- */
+.chat-deal.deal-turno { background: #fffbeb; border-bottom: 2px solid #f59e0b; box-shadow: inset 4px 0 0 #f59e0b; }
+.chat-deal.deal-turno .deal-state { color: #b45309; }
+.chat-deal.deal-turno .deal-text { font-size: .9rem; color: #1f2937; }
+.deal-big { font-size: .95rem; padding: .7rem 1rem; box-shadow: 0 0 0 0 rgba(22,163,74,.5); animation: deal-pulse 2s ease-out infinite; }
+@keyframes deal-pulse { 0% { box-shadow: 0 0 0 0 rgba(22,163,74,.45); } 70% { box-shadow: 0 0 0 10px rgba(22,163,74,0); } 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); } }
+@media (prefers-reduced-motion: reduce) { .deal-big { animation: none; } }
+
+/* ---------- v33: profilo, giudizi e storico scambi ---------- */
+.profile-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-top: .25rem; }
+.profile-stats > div { padding: .35rem 0; }
+.storico-avviso { margin-bottom: .5rem; padding: .55rem .7rem; border-radius: .55rem; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; font-size: .82rem; font-weight: 600; }
+.storico-row { padding: .7rem .8rem; border: 1px solid #e5e7eb; border-radius: .6rem; background: #fff; text-align: left; }
+.storico-urgente { border-color: #f59e0b !important; background: #fffbeb; box-shadow: inset 4px 0 0 #f59e0b; }
+.storico-top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.storico-titolo { min-width: 0; font-size: .88rem; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.storico-kp { flex: 0 0 auto; font-size: .8rem; font-weight: 700; }
+.kp-piu { color: #15803d; }
+.kp-meno { color: #b45309; }
+.storico-chi { margin: .15rem 0 0; font-size: .76rem; color: #6b7280; }
+.storico-giudizi { margin: .4rem 0 0; display: flex; flex-direction: column; gap: .2rem; font-size: .8rem; color: #374151; }
+.storico-attesa { font-weight: 600; color: #92400e; }
+.storico-btns { display: flex; gap: .5rem; margin-top: .3rem; }
+
+/* ---------- v33: contestazioni entro 48 ore ---------- */
+.chat-deal.deal-contestata { background: #fff7ed; box-shadow: inset 4px 0 0 #ea580c; }
+.storico-contest { margin: .45rem 0 0; padding: .45rem .6rem; border-radius: .5rem; background: #fff7ed; border: 1px solid #fed7aa; font-size: .78rem; color: #7c2d12; line-height: 1.35; }
+.storico-segnala { margin-top: .45rem; width: 100%; padding: .45rem .6rem; border-radius: .5rem; background: #fff; border: 1px solid #fdba74; color: #c2410c; font-size: .78rem; font-weight: 600; cursor: pointer; text-align: left; }
+.contest-tipi { display: flex; flex-direction: column; gap: .35rem; font-size: .85rem; color: #374151; }
+.contest-tipi label { display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; border: 1px solid #e5e7eb; border-radius: .45rem; cursor: pointer; }
+.contest-tipi label:has(input:checked) { border-color: #f97316; background: #fff7ed; }
+.contest-card { border-color: #fdba74; background: #fff7ed; }
+.offers-error.offers-adblock { background: #fff7ed; border-color: #fb923c; color: #7c2d12; }
+.offers-error.offers-adblock p + p { margin-top: .35rem; }
+.offers-error.offers-adblock ol { margin: .45rem 0 0 1.1rem; padding: 0; list-style: decimal; display: flex; flex-direction: column; gap: .2rem; }
+.offers-error.offers-adblock .offers-error-actions button { border-color: #fb923c; color: #9a3412; }
