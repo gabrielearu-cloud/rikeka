@@ -31,9 +31,9 @@ export const PAROLE_VIETATE = [
 
 // Bestemmie: nome sacro + insulto, in entrambi gli ordini ("dio cane", "cane dio")
 // e scritte attaccate ("diocane"). Non bloccano "dio" o "cane" da soli.
-const INSULTI_M = ['cane', 'can', 'porco', 'porcone', 'porcaccio', 'maiale', 'bestia', 'boia', 'ladro', 'ladrone', 'merda',
+export const INSULTI_M = ['cane', 'can', 'porco', 'porcone', 'porcaccio', 'maiale', 'bestia', 'boia', 'ladro', 'ladrone', 'merda',
   'schifoso', 'infame', 'bastardo', 'impestato', 'assassino', 'lurido', 'serpente', 'cornuto', 'maledetto', 'lupo', 'verme', 'stronzo'];
-const INSULTI_F = ['cagna', 'porca', 'maiala', 'troia', 'puttana', 'zoccola', 'ladra', 'schifosa', 'infame', 'bastarda',
+export const INSULTI_F = ['cagna', 'porca', 'maiala', 'troia', 'puttana', 'zoccola', 'ladra', 'schifosa', 'infame', 'bastarda',
   'impestata', 'assassina', 'lurida', 'vacca', 'maledetta', 'merda', 'bestia', 'boia', 'serpente', 'lupa', 'stronza'];
 const SACRI = [['dio', INSULTI_M], ['cristo', INSULTI_M], ['gesu', INSULTI_M], ['madonna', INSULTI_F]];
 export const BESTEMMIE = [...new Set(SACRI.flatMap(([s, insulti]) => insulti.flatMap((i) =>
