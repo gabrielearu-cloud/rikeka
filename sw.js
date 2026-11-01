@@ -6,7 +6,7 @@
 // Quando cambi i file dell'app non serve toccare nulla; aumenta VERSIONE
 // solo se aggiungi o rinomini file nell'elenco qui sotto.
 // =====================================================================
-const VERSIONE = 'rikeka-v33';
+const VERSIONE = 'rikeka-v33a';
 const FILE_BASE = [
   './', './index.html', './privacy.html', './termini.html', './manifest.webmanifest',
   './css/style.css',

@@ -37,8 +37,10 @@
       <ol>
         <li><b>Pubblica</b> ciò che non usi più o un aiuto che sai dare: il valore in KP si calcola da solo.</li>
         <li>Chi è interessato ti <b>scrive in chat</b> e scegli tu a chi darlo.</li>
-        <li>Dopo la consegna, chi riceve <b>conferma</b> e i KP passano a te.</li>
+        <li>Vi incontrate e fate lo scambio <b>insieme</b>: chi regala preme «Ho consegnato», chi riceve <b>conferma dal suo telefono</b> e in quell'istante i KP passano.</li>
       </ol>
+      <p class="info-tip">💡 <b>Consiglio:</b> confermate mentre vi passate l'oggetto (o appena finito il servizio). Chi regala lo lascia solo quando vede la conferma; chi riceve conferma solo quando ce l'ha davanti. Se poi c'è un problema hai 48 ore per segnalarlo.</p>
+      <p class="info-tip">⭐ Più giudizi 👍 ricevi, più sale il tuo livello di affidabilità: 🌿 In crescita → 🥉 Affidabile → 🥈 Molto affidabile → 🥇 Super affidabile → 💎 Ambasciatore.</p>
       <p id="info-bonus" class="info-bonus">🎁 Chi si iscrive riceve 50 KP subito e altri 50 KP al primo scambio concluso.</p>
       <p class="info-foot">Meno sprechi, più vicinato.</p>
       <p class="info-bug">Qualcosa non funziona? <button type="button" onclick="toggleInfo(event, false); openBugReport()">🐞 Segnala un problema</button></p>
@@ -51,6 +53,11 @@
 
     <!-- ===================== HOME ===================== -->
     <section id="home-screen" class="screen active">
+      <!-- Menu categorie laterale: visibile solo su schermi larghi (PC) -->
+      <aside id="cat-side" class="cat-side" aria-label="Categorie">
+        <p class="cat-side-title">Categorie</p>
+        <div id="cat-side-list"></div>
+      </aside>
       <div class="sticky top-0 z-20 bg-gray-800 text-white px-4 py-2 shadow-md flex justify-between items-center">
         <div>
           <span class="text-xs text-gray-400 font-medium mr-1.5">Saldo Karma:</span>
