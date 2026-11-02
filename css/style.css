@@ -610,15 +610,7 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neu
 
 /* ---------- v33: menu categorie laterale (solo PC) ---------- */
 .cat-side { display: none; }
-/* Colonna attaccata al lato sinistro del pannello dell'app (largo 28rem e centrato):
-   va dalla testata alla barra in basso, senza mai coprirla */
-@media (min-width: 1024px) {
-  .cat-side { display: block; position: fixed; z-index: 5; width: 15rem;
-    left: calc(50% - 14rem - 15rem); top: 56px; bottom: calc(64px + env(safe-area-inset-bottom));
-    overflow-y: auto; background: #fff; padding: .9rem .7rem;
-    border-right: 1px solid #e5e7eb; box-shadow: -8px 0 16px -10px rgba(0,0,0,.18); }
-  #group-chips { display: none; }
-}
+/* Il menu categorie è una colonna della Home, visibile solo su PC (vedi "Schermi larghi" in fondo) */
 .cat-side-title { font-size: .72rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; padding: .1rem .5rem .5rem; }
 .cat-side-item { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: .5rem; padding: .5rem .6rem; border-radius: .55rem;
   font-size: .88rem; color: #1f2937; text-align: left; cursor: pointer; background: none; border: 0; }
@@ -627,3 +619,54 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neu
 .cat-side-n { font-size: .75rem; color: #6b7280; font-weight: 600; min-width: 1.5rem; text-align: right; }
 .cat-side-on .cat-side-n { color: #166534; }
 .cat-side-sep { border: 0; border-top: 1px solid #e5e7eb; margin: .4rem .3rem; }
+
+/* ---------- v33a: manutenzione e schermata di emergenza ---------- */
+.maint-screen { display: none; position: fixed; inset: 0; z-index: 150; background: #f0fdf4; align-items: center; justify-content: center; padding: 1.25rem; }
+#boot-error { z-index: 300; }
+.maint-box { width: 100%; max-width: 26rem; background: #fff; border-radius: 1rem; padding: 1.75rem 1.5rem; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.08); font-family: inherit; }
+.maint-box img { margin: 0 auto .75rem; border-radius: 1rem; }
+.maint-box h2 { font-size: 1.25rem; font-weight: 700; color: #14532d; margin: 0 0 .6rem; }
+.maint-box p { font-size: .95rem; color: #374151; line-height: 1.45; margin: 0 0 .5rem; white-space: pre-wrap; }
+.maint-box .maint-small { font-size: .8rem; color: #6b7280; }
+.maint-box button { display: block; width: 100%; margin-top: .9rem; padding: .75rem; border-radius: .6rem; border: 0; background: #16a34a; color: #fff; font-weight: 600; font-size: .95rem; cursor: pointer; }
+.maint-box .maint-admin { margin-top: .5rem; background: none; color: #6b7280; font-weight: 500; font-size: .8rem; text-decoration: underline; }
+.maint-admin-banner { margin-top: .6rem; padding: .6rem .75rem; border-radius: .6rem; background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; font-size: .82rem; }
+
+/* ---------- v33a: SCHERMI LARGHI (PC) — si usa tutta la larghezza ---------- */
+.prof-col { width: 100%; }
+@media (min-width: 1024px) {
+  /* il pannello dell'app occupa tutto lo schermo (fino a 1600px) */
+  #app-container { max-width: 1600px; }
+  #tab-bar { padding-left: max(0px, calc(50% - 22rem)); padding-right: max(0px, calc(50% - 22rem)); }
+
+  /* HOME: colonna categorie a sinistra + annunci su più colonne */
+  #home-screen.active { display: grid; grid-template-columns: 16rem minmax(0, 1fr); align-items: start; }
+  .cat-side { display: block; position: sticky; top: 0; align-self: start; height: calc(100vh - 56px - 64px);
+    overflow-y: auto; background: #fff; padding: 1rem .75rem; border-right: 1px solid #e5e7eb; }
+  @supports (height: 100dvh) { .cat-side { height: calc(100dvh - 56px - 64px); } }
+  .home-main { min-width: 0; }
+  #group-chips { display: none; }
+  .ad-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); gap: .9rem; }
+  .ad-list > * { margin: 0 !important; }
+  #home-screen .search-box { max-width: 44rem; }
+
+  /* PROFILO: due colonne (dati a sinistra, annunci e scambi a destra) */
+  #profile-screen.active { display: grid; grid-template-columns: minmax(0, 26rem) minmax(0, 1fr); column-gap: 1.5rem;
+    align-items: start; align-content: start; padding: 0 1.5rem 1.5rem; }
+  #profile-screen > :first-child { grid-column: 1 / -1; }
+  #profile-screen > .prof-col-a { grid-column: 1; }
+  #profile-screen > .prof-col-b { grid-column: 2; padding-top: 1rem; }
+  #profile-screen > :last-child { grid-column: 1 / -1; max-width: 40rem; justify-self: center; }
+  #storico { display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: .6rem; }
+  #storico > * { margin: 0 !important; }
+
+  /* PUBBLICA: modulo centrato e leggibile (non serve tutta la larghezza) */
+  #publish-screen.active > * { width: 100%; max-width: 46rem; margin-left: auto; margin-right: auto; }
+
+  /* CHAT: elenco centrato e più largo */
+  #chat-list-screen.active > * { width: 100%; max-width: 56rem; margin-left: auto; margin-right: auto; }
+
+  /* PANNELLO ADMIN: le sezioni affiancate su due colonne */
+  #admin-screen.active > .p-4.space-y-6 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+  #admin-screen.active > .p-4.space-y-6 > * { margin-top: 0 !important; }
+}
