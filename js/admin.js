@@ -36,7 +36,7 @@ window.openAdmin = async function () {
 
 window.refreshAdmin = async function () {
   if (!state.isAdmin) return;
-  await Promise.all([loadStats(), loadContestazioniAdmin(), loadBugs(), loadIscrizioni(), loadAdmins(), loadControl(), loadReviewQueue(), loadReported(), loadLogs()]);
+  await Promise.all([loadStats(), loadContestazioniAdmin(), loadBugs(), loadManutenzione(), loadIscrizioni(), loadAdmins(), loadControl(), loadReviewQueue(), loadReported(), loadLogs()]);
   fillCatalogEditor();
 };
 
@@ -127,6 +127,45 @@ window.deleteBug = async function (id) {
   if (!id) return;
   try { await deleteDoc(doc(db, 'problemi', id)); await loadBugs(); }
   catch (e) { reportError('admin.deleteBug', e); alert('Non eliminato: ' + regoleVecchie(e)); }
+};
+
+// ---------- Manutenzione: blocca l'app a tutti tranne gli amministratori ----------
+let manutAttiva = false;
+function paintManutenzione() {
+  $('maint-stato').textContent = manutAttiva ? '🔴 Manutenzione ATTIVA' : '🟢 App aperta a tutti';
+  $('maint-btn').textContent = manutAttiva ? 'Disattiva manutenzione' : 'Attiva manutenzione';
+}
+async function loadManutenzione() {
+  try {
+    const c = (await getDoc(doc(db, 'config', 'manutenzione'))).data();
+    manutAttiva = c?.attiva === true;
+    $('maint-input').value = typeof c?.messaggio === 'string' ? c.messaggio : '';
+  } catch (e) {
+    reportError('admin.loadManutenzione', e);
+  }
+  paintManutenzione();
+}
+window.toggleManutenzione = async function () {
+  const nuovo = !manutAttiva;
+  if (!confirm(nuovo ? 'Attivare la manutenzione? Tutti gli utenti (tranne gli amministratori) vedranno solo il messaggio e non potranno usare Rikeka.'
+                     : 'Disattivare la manutenzione e riaprire Rikeka a tutti?')) return;
+  const btn = $('maint-btn'); btn.disabled = true;
+  try {
+    await setDoc(doc(db, 'config', 'manutenzione'), {
+      attiva: nuovo,
+      messaggio: String($('maint-input').value || '').trim().slice(0, 300),
+      by: auth.currentUser.uid,
+      at: serverTimestamp()
+    });
+    manutAttiva = nuovo;
+    paintManutenzione();
+    logEvent(nuovo ? 'maintenance_on' : 'maintenance_off', {}, 'warn');
+  } catch (e) {
+    reportError('admin.toggleManutenzione', e);
+    alert('Non salvato: ' + regoleVecchie(e));
+  } finally {
+    btn.disabled = false;
+  }
 };
 
 // ---------- Iscrizioni aperte / chiuse ----------

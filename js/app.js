@@ -370,7 +370,7 @@ function updateFotoLabels() {
 }
 
 // Versione dell'app: deve essere uguale a VERSIONE in sw.js (si vede in fondo al Profilo)
-export const APP_VERSIONE = 'rikeka-v33a';
+export const APP_VERSIONE = 'rikeka-v33b';
 
 // Anti-flood (gli stessi valori sono in firestore.rules, match /quote)
 const ANNUNCI_INTERVALLO_MS = 31 * 1000;   // 1 secondo di margine sui 30 delle regole
@@ -467,8 +467,31 @@ function stopListeners() {
   Object.keys(unsub).forEach((k) => { try { unsub[k]?.(); } catch (_) {} unsub[k] = null; });
 }
 
+// ---------- Manutenzione (Pannello Admin): blocca l'app a tutti tranne gli amministratori ----------
+const MSG_MANUTENZIONE = 'Stiamo aggiornando Rikeka. Torniamo tra poco!';
+let manutenzione = { attiva: false, messaggio: '' };
+let accessoAdminRichiesto = false;   // "Accesso amministratori": mostra il login a chi non è ancora entrato
+function applicaManutenzione() {
+  const blocca = manutenzione.attiva && !state.isAdmin && !(accessoAdminRichiesto && !auth.currentUser);
+  $('maint-msg').textContent = manutenzione.messaggio || MSG_MANUTENZIONE;
+  $('maint-screen').style.display = blocca ? 'flex' : 'none';
+  $('maint-admin-banner')?.classList.toggle('hidden', !(manutenzione.attiva && state.isAdmin));
+}
+onSnapshot(doc(db, 'config', 'manutenzione'), (snap) => {
+  const d = snap.exists() ? snap.data() : {};
+  manutenzione = { attiva: d.attiva === true, messaggio: typeof d.messaggio === 'string' ? d.messaggio.trim() : '' };
+  applicaManutenzione();
+}, (e) => console.warn('Stato manutenzione non letto:', e?.code || e));
+document.addEventListener('admin-changed', applicaManutenzione);
+window.accessoAdminManutenzione = function () {
+  accessoAdminRichiesto = true;
+  applicaManutenzione();
+};
+
 onAuthStateChanged(auth, (user) => {
+  window.__rikekaPronta = true;   // l'app è partita: niente schermata di emergenza
   $('loading-screen').style.display = 'none';
+  applicaManutenzione();
   $('app-container').classList.remove('hidden');
   stopListeners();
   state.offers.clear();
@@ -1295,22 +1318,7 @@ function renderGroupSide() {
       voce(groupFilter === gruppo && !tabServizi, 'scegliCategoriaLaterale(this.dataset.g)', `${icona} ${esc(gruppo)}`, conta.get(gruppo) || 0, `data-g="${esc(gruppo)}"`)).join('')
     + '<hr class="cat-side-sep">'
     + voce(tabServizi, "scegliCategoriaLaterale('__servizi')", '🤝 Servizi e aiuto', servizi);
-  posizionaMenuLaterale();
 }
-// Il menu laterale si aggancia al bordo sinistro del pannello, tra la testata e la barra in basso
-function posizionaMenuLaterale() {
-  const side = $('cat-side');
-  if (!side || getComputedStyle(side).display === 'none') return;
-  const pannello = $('app-container')?.getBoundingClientRect();
-  const testata = $('app-header')?.getBoundingClientRect();
-  const barra = $('tab-bar')?.getBoundingClientRect();
-  if (!pannello || !testata || !barra || !pannello.width) return;
-  side.style.left = Math.max(0, pannello.left - (side.offsetWidth || 240)) + 'px';
-  side.style.top = Math.max(0, testata.bottom) + 'px';
-  side.style.bottom = Math.max(0, window.innerHeight - barra.top) + 'px';
-}
-window.addEventListener('resize', posizionaMenuLaterale);
-
 window.scegliCategoriaLaterale = function (g) {
   if (g === '__servizi') {
     groupFilter = '';
@@ -2846,22 +2854,21 @@ export function testoReputazione(u) {
 function boxAffidabilita(u) {
   const lv = livelloAffidabilita(u);
   let prossimo;
-  if (lv.cls === 'lv-warn') prossimo = 'Troppi giudizi negativi: con scambi corretti e giudizi positivi la percentuale risale.';
+  if (lv.cls === 'lv-warn') prossimo = 'Troppi giudizi negativi.';
   else if (lv.prossimo) {
     const manca = lv.prossimo.min - lv.pos;
     const meta = `<b>${lv.prossimo.icona} ${lv.prossimo.nome}</b>`;
     prossimo = manca > 0
-      ? `Ancora <b>${manca}</b> ${manca === 1 ? 'giudizio positivo' : 'giudizi positivi'} per diventare ${meta}` + (lv.prossimo.pct ? ` (con almeno il ${lv.prossimo.pct}% di 👍)` : '') + '.'
-      : `Per diventare ${meta} serve almeno il ${lv.prossimo.pct}% di giudizi 👍 (ora sei al ${lv.pct}%).`;
+      ? `Ancora <b>${manca}</b> ${manca === 1 ? 'giudizio positivo' : 'giudizi positivi'} per diventare ${meta}.`
+      : `Servono più giudizi 👍 per diventare ${meta}.`;
   } else prossimo = 'Hai raggiunto il livello più alto. Grazie!';
   const scala = [...LIVELLI_AFFIDABILITA].reverse().map((l) =>
-    `<span class="aff-step${l.cls === lv.cls ? ' aff-step-on' : ''}" title="${l.min} giudizi positivi${l.pct ? `, almeno ${l.pct}% di 👍` : ''}">${l.icona}<small>${l.min}+</small></span>`).join('');
+    `<span class="aff-step${l.cls === lv.cls ? ' aff-step-on' : ''}" title="${l.nome}">${l.icona}<small>${l.min}+</small></span>`).join('');
   return `<div class="aff-box">
     <p class="aff-label">La tua affidabilità</p>
     <p class="aff-livello"><span class="rep-badge ${lv.cls}">${lv.icona} ${lv.nome}</span></p>
     <div class="aff-scala">${scala}</div>
     <p class="aff-next">${prossimo}</p>
-    <p class="aff-hint">Il livello si vede accanto al tuo nome negli annunci e in chat. Sale con i giudizi 👍 che ricevi regalando e ricevendo.</p>
   </div>`;
 }
 
