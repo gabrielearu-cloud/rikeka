@@ -24,6 +24,53 @@
   <p class="mt-4 text-gray-700">Caricamento Rikeka...</p>
 </div>
 
+<!-- MANUTENZIONE: attivata dal Pannello Admin (config/manutenzione) -->
+<div id="maint-screen" class="maint-screen" role="alertdialog" aria-live="polite">
+  <div class="maint-box">
+    <img src="icons/icon-192.png" alt="" width="72" height="72">
+    <h2>🛠 Rikeka è in manutenzione</h2>
+    <p id="maint-msg">Stiamo aggiornando Rikeka. Torniamo tra poco!</p>
+    <p class="maint-small">I tuoi annunci, le chat e i KP sono al sicuro.</p>
+    <button type="button" onclick="location.reload()">↻ Riprova</button>
+    <button type="button" class="maint-admin" onclick="accessoAdminManutenzione()">Accesso amministratori</button>
+  </div>
+</div>
+
+<!-- EMERGENZA: compare da sola se l'app non riesce a partire (errore nel codice, file mancanti, rete) -->
+<div id="boot-error" class="maint-screen" role="alertdialog">
+  <div class="maint-box">
+    <img src="icons/icon-192.png" alt="" width="72" height="72">
+    <h2>🛠 Rikeka non è disponibile in questo momento</h2>
+    <p>Potrebbe essere un aggiornamento in corso o un problema tecnico. Riprova tra qualche minuto.</p>
+    <p class="maint-small">I tuoi annunci, le chat e i KP sono al sicuro. Se il problema resta, scrivi a rikekainfo@gmail.com.</p>
+    <button type="button" onclick="location.reload()">↻ Riprova</button>
+    <button type="button" class="maint-admin" onclick="riparaAvvio()">🧹 Ripara e ricarica</button>
+  </div>
+</div>
+<script>
+  // Se l'app non segnala di essere partita entro 20 secondi, si mostra la schermata di emergenza.
+  // Non dipende dal resto del codice: funziona anche se app.js ha un errore o non si scarica.
+  (function () {
+    function mostra() {
+      if (window.__rikekaPronta) return;
+      var l = document.getElementById('loading-screen'); if (l) l.style.display = 'none';
+      document.getElementById('boot-error').style.display = 'flex';
+    }
+    window.__mostraErroreAvvio = mostra;
+    setTimeout(mostra, 20000);
+    window.riparaAvvio = function () {
+      var fatto = function () { location.reload(); };
+      try {
+        var p = [];
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations)
+          p.push(navigator.serviceWorker.getRegistrations().then(function (r) { return Promise.all(r.map(function (x) { return x.unregister(); })); }));
+        if (window.caches) p.push(caches.keys().then(function (k) { return Promise.all(k.map(function (x) { return caches.delete(x); })); }));
+        Promise.all(p).then(fatto, fatto);
+      } catch (e) { fatto(); }
+    };
+  })();
+</script>
+
 <div id="app-container" class="hidden max-w-md mx-auto bg-white min-h-screen shadow-lg">
 
   <header id="app-header" class="bg-white p-4 border-b border-gray-200 flex justify-between items-center relative">
@@ -40,7 +87,6 @@
         <li>Vi incontrate e fate lo scambio <b>insieme</b>: chi regala preme «Ho consegnato», chi riceve <b>conferma dal suo telefono</b> e in quell'istante i KP passano.</li>
       </ol>
       <p class="info-tip">💡 <b>Consiglio:</b> confermate mentre vi passate l'oggetto (o appena finito il servizio). Chi regala lo lascia solo quando vede la conferma; chi riceve conferma solo quando ce l'ha davanti. Se poi c'è un problema hai 48 ore per segnalarlo.</p>
-      <p class="info-tip">⭐ Più giudizi 👍 ricevi, più sale il tuo livello di affidabilità: 🌿 In crescita → 🥉 Affidabile → 🥈 Molto affidabile → 🥇 Super affidabile → 💎 Ambasciatore.</p>
       <p id="info-bonus" class="info-bonus">🎁 Chi si iscrive riceve 50 KP subito e altri 50 KP al primo scambio concluso.</p>
       <p class="info-foot">Meno sprechi, più vicinato.</p>
       <p class="info-bug">Qualcosa non funziona? <button type="button" onclick="toggleInfo(event, false); openBugReport()">🐞 Segnala un problema</button></p>
@@ -58,6 +104,7 @@
         <p class="cat-side-title">Categorie</p>
         <div id="cat-side-list"></div>
       </aside>
+      <div class="home-main">
       <div class="sticky top-0 z-20 bg-gray-800 text-white px-4 py-2 shadow-md flex justify-between items-center">
         <div>
           <span class="text-xs text-gray-400 font-medium mr-1.5">Saldo Karma:</span>
@@ -75,6 +122,7 @@
         <div id="group-chips" class="filter-chips"></div>
         <p id="search-status" class="search-status"></p>
         <div id="offers-error" class="offers-error hidden" role="alert"></div>
+        <div id="maint-admin-banner" class="hidden maint-admin-banner">🛠 <b>Manutenzione attiva:</b> gli utenti vedono il blocco, tu (amministratore) puoi usare l'app. Disattivala dal Pannello Admin.</div>
         <div id="suspended-banner" class="hidden suspended-banner">⛔ Il tuo account è sospeso da un amministratore: puoi consultare gli annunci ma non pubblicare né scrivere in chat.</div>
         <div id="install-banner" class="install-banner hidden">
           <span class="install-icon">📲</span>
@@ -104,6 +152,7 @@
       </div>
       <div class="px-4 pb-6">
         <button id="load-more" onclick="loadMoreOffers()" class="hidden w-full py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Carica altri annunci</button>
+      </div>
       </div>
     </section>
 
@@ -247,6 +296,7 @@
         <h2 id="profile-name-header" class="text-2xl font-bold text-gray-800 mb-1">Nome Utente</h2>
         <p id="profile-role" class="text-sm text-gray-500">Membro Rikeka</p>
       </div>
+      <div class="prof-col prof-col-a">
       <div id="profile-data" class="w-full text-center p-6 mt-4 bg-white rounded-lg shadow-md border border-gray-100"></div>
       <div class="w-full px-4 pt-4">
         <div class="zone-card">
@@ -268,6 +318,8 @@
           <ul id="push-test-out" class="hidden mt-2 space-y-1 text-xs"></ul>
         </div>
       </div>
+      </div>
+      <div class="prof-col prof-col-b">
       <div id="to-receive-section" class="hidden w-full px-4 pt-4">
         <h3 class="text-sm font-semibold text-gray-700 mb-2">Da ricevere</h3>
         <div id="to-receive" class="space-y-2"></div>
@@ -281,6 +333,7 @@
         <p class="text-xs text-gray-500 mb-2">Qui restano tutti i tuoi scambi, con il giudizio che hai dato e quello che hai ricevuto.</p>
         <p id="storico-da-dare" class="storico-avviso hidden"></p>
         <div id="storico" class="space-y-2"></div>
+      </div>
       </div>
       <div class="w-full p-4 space-y-3">
         <button id="admin-btn" onclick="openAdmin()" class="hidden w-full py-3 px-4 rounded-md shadow-lg text-sm font-medium text-white bg-gray-800 hover:bg-gray-900">🛠 Pannello Admin</button>
@@ -320,6 +373,16 @@
           <h3 class="text-sm font-semibold text-gray-700 mb-1">Problemi segnalati</h3>
           <p class="text-xs text-gray-500 mb-2">Inviati dagli utenti con "Segnala un problema". Quando l'hai risolto, eliminalo.</p>
           <div id="admin-bugs" class="space-y-2"></div>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-1">🛠 Manutenzione</h3>
+          <p class="text-xs text-gray-500 mb-2">Se la attivi, tutti gli utenti vedono solo il messaggio qui sotto e non possono usare Rikeka. Gli amministratori continuano a entrare normalmente.</p>
+          <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+            <span id="maint-stato" class="text-sm font-semibold text-gray-700">…</span>
+            <button id="maint-btn" onclick="toggleManutenzione()" class="px-3 py-1.5 text-xs font-medium rounded bg-gray-800 text-white hover:bg-gray-900">…</button>
+          </div>
+          <textarea id="maint-input" class="field mt-2 text-sm" rows="2" maxlength="300" placeholder="Es.: Stiamo aggiornando Rikeka, torniamo verso le 22:00."></textarea>
         </div>
 
         <div>
@@ -746,6 +809,6 @@
   <p class="text-gray-400 text-xs mt-2">Tocca fuori dall'immagine per chiudere</p>
 </div>
 
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js" onerror="window.__mostraErroreAvvio && window.__mostraErroreAvvio()"></script>
 </body>
 </html>
