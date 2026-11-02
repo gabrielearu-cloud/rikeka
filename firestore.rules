@@ -107,6 +107,16 @@ service cloud.firestore {
     // =================================================================
     match /config/{docId} {
       allow get: if signedIn();
+      // Avviso di manutenzione: deve vederlo anche chi non ha ancora fatto l'accesso
+      allow get: if docId == 'manutenzione';
+      allow write: if isAdmin()
+        && docId == 'manutenzione'
+        && request.resource.data.keys().hasOnly(['attiva', 'messaggio', 'by', 'at'])
+        && request.resource.data.attiva is bool
+        && request.resource.data.messaggio is string
+        && request.resource.data.messaggio.size() <= 300
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.at == request.time;
       allow list: if false;
       // Interruttore "iscrizioni aperte/chiuse" (Pannello Admin)
       allow write: if isAdmin()
