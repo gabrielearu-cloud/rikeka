@@ -670,3 +670,35 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neu
   #admin-screen.active > .p-4.space-y-6 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
   #admin-screen.active > .p-4.space-y-6 > * { margin-top: 0 !important; }
 }
+
+/* ---------- v33c: icone dei livelli (SVG) e spiegazione "?" ---------- */
+.lv-icona { display: inline-block; vertical-align: -0.18em; flex-shrink: 0; }
+.aff-step .lv-icona { display: block; margin: 0 auto .1rem; }
+.aff-head { display: flex; align-items: center; justify-content: center; gap: .1rem; }
+.aff-info-btn { width: 20px; height: 20px; font-size: .72rem; margin-left: 6px; }
+.aff-info-aperta .aff-info-btn { background: #475569; border-color: #475569; color: #fff; }
+.aff-info { display: none; margin: .55rem 0 .3rem; padding: .6rem .7rem; border-radius: .6rem; background: #fff; border: 1px solid #e5e7eb; text-align: left; font-size: .78rem; color: #374151; line-height: 1.4; }
+.aff-info-aperta .aff-info { display: block; }
+.aff-info ul { margin: .4rem 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .25rem; }
+.aff-info li { display: block; }
+
+/* ---------- v33c: Pannello Admin, cose da valutare in evidenza ---------- */
+.adm-dafare { padding: .9rem; border-radius: .9rem; background: #fff7ed; border: 2px solid #fdba74; }
+.adm-dafare.adm-dafare-tutto-ok { background: #f0fdf4; border-color: #86efac; }
+.adm-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .5rem; }
+.adm-tile { display: flex; flex-direction: column; align-items: flex-start; gap: .15rem; padding: .6rem .7rem; border-radius: .7rem; border: 1px solid #e5e7eb; background: #fff; text-align: left; cursor: pointer; }
+.adm-tile-n { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+.adm-tile-nome { font-size: .74rem; font-weight: 600; color: #374151; }
+.adm-tile-urgente { border-color: #f87171; background: #fef2f2; box-shadow: 0 0 0 2px rgba(239,68,68,.15); }
+.adm-tile-urgente .adm-tile-n { color: #dc2626; }
+.adm-tile-ok .adm-tile-n { color: #16a34a; font-size: 1.2rem; }
+.adm-tile-ignoto .adm-tile-n { color: #9ca3af; }
+.adm-sezione { scroll-margin-top: 1rem; }
+.adm-sezione.adm-urgente { padding: .8rem; border-radius: .8rem; border: 2px solid #f87171; background: #fffafa; }
+.adm-conta { display: inline-block; min-width: 1.4rem; padding: 0 .4rem; margin-left: .3rem; border-radius: 9999px; background: #dc2626; color: #fff; font-size: .72rem; font-weight: 700; text-align: center; line-height: 1.4rem; }
+.adm-divisore { display: flex; align-items: center; gap: .6rem; color: #9ca3af; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.adm-divisore::before, .adm-divisore::after { content: ""; flex: 1; border-top: 1px solid #e5e7eb; }
+.adm-btn-badge { display: inline-block; margin-left: .4rem; padding: .05rem .5rem; border-radius: 9999px; background: #dc2626; color: #fff; font-size: .72rem; font-weight: 700; }
+@media (min-width: 1024px) {
+  #admin-screen.active > .p-4.space-y-6 > .adm-dafare, #admin-screen.active > .p-4.space-y-6 > .adm-divisore { grid-column: 1 / -1; }
+}
