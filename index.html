@@ -355,24 +355,48 @@
         <button onclick="navigate('profile-screen', document.getElementById('nav-profile'))" class="text-sm text-gray-600 hover:text-gray-900">← Profilo</button>
       </div>
       <div class="p-4 space-y-6">
+        <div id="adm-dafare" class="adm-dafare">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-base font-bold text-gray-800">📋 Da fare</h3>
+            <button onclick="refreshAdmin()" class="px-3 py-1 text-xs rounded bg-gray-200 hover:bg-gray-300">↻ Aggiorna tutto</button>
+          </div>
+          <div id="adm-dafare-tiles" class="adm-tiles"></div>
+        </div>
+        <div id="sez-contest" class="adm-sezione" data-dafare="contest">
+          <h3 class="text-sm font-semibold text-gray-700 mb-1">⚠️ Contestazioni sugli scambi</h3>
+          <p class="text-xs text-gray-500 mb-2">Chi ha ricevuto segnala un problema entro 48 ore. Decidi tu: restituire i KP a chi ha ricevuto (togliendoli o no a chi ha regalato) oppure respingere.</p>
+          <div id="admin-contest" class="space-y-2"></div>
+        </div>
+
+        <div id="sez-review" class="adm-sezione" data-dafare="review">
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Annunci da verificare</h3>
+          <div id="admin-review" class="space-y-2"></div>
+        </div>
+
+        <div id="sez-reported" class="adm-sezione" data-dafare="reported">
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Annunci segnalati</h3>
+          <div id="admin-reported" class="space-y-2"></div>
+        </div>
+
+        <div id="sez-control" class="adm-sezione" data-dafare="control">
+          <h3 class="text-sm font-semibold text-gray-700 mb-1">Da controllare</h3>
+          <p class="text-xs text-gray-500 mb-2">Scambi fermi per cui è stato chiesto aiuto, utenti con 2 o più giudizi negativi e account sospesi.</p>
+          <div id="admin-control" class="space-y-2"></div>
+        </div>
+
+        <div id="sez-bugs" class="adm-sezione" data-dafare="bugs">
+          <h3 class="text-sm font-semibold text-gray-700 mb-1">Problemi segnalati</h3>
+          <p class="text-xs text-gray-500 mb-2">Inviati dagli utenti con "Segnala un problema". Quando l'hai risolto, eliminalo.</p>
+          <div id="admin-bugs" class="space-y-2"></div>
+        </div>
+
+        <div class="adm-divisore"><span>Gestione e impostazioni</span></div>
         <div>
           <div class="flex justify-between items-center mb-2">
             <h3 class="text-sm font-semibold text-gray-700">Statistiche</h3>
             <button onclick="refreshAdmin()" class="px-3 py-1 text-xs rounded bg-gray-200 hover:bg-gray-300">↻ Aggiorna tutto</button>
           </div>
           <div id="admin-stats" class="grid grid-cols-2 gap-2 text-sm"></div>
-        </div>
-
-        <div>
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">⚠️ Contestazioni sugli scambi</h3>
-          <p class="text-xs text-gray-500 mb-2">Chi ha ricevuto segnala un problema entro 48 ore. Decidi tu: restituire i KP a chi ha ricevuto (togliendoli o no a chi ha regalato) oppure respingere.</p>
-          <div id="admin-contest" class="space-y-2"></div>
-        </div>
-
-        <div>
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">Problemi segnalati</h3>
-          <p class="text-xs text-gray-500 mb-2">Inviati dagli utenti con "Segnala un problema". Quando l'hai risolto, eliminalo.</p>
-          <div id="admin-bugs" class="space-y-2"></div>
         </div>
 
         <div>
@@ -408,26 +432,10 @@
         </div>
 
         <div>
-          <h3 class="text-sm font-semibold text-gray-700 mb-1">Da controllare</h3>
-          <p class="text-xs text-gray-500 mb-2">Scambi fermi per cui è stato chiesto aiuto, utenti con 2 o più giudizi negativi e account sospesi.</p>
-          <div id="admin-control" class="space-y-2"></div>
-        </div>
-
-        <div>
           <h3 class="text-sm font-semibold text-gray-700 mb-1">Verifica notifiche</h3>
           <p class="text-xs text-gray-500 mb-2">Controlla il server e invia una notifica di prova ai tuoi dispositivi.</p>
           <button id="push-test-btn" onclick="testPush()" class="px-3 py-2 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700">🔔 Verifica e invia prova</button>
           <div id="push-test-result" class="text-xs mt-2 space-y-1"></div>
-        </div>
-
-        <div>
-          <h3 class="text-sm font-semibold text-gray-700 mb-2">Annunci da verificare</h3>
-          <div id="admin-review" class="space-y-2"></div>
-        </div>
-
-        <div>
-          <h3 class="text-sm font-semibold text-gray-700 mb-2">Annunci segnalati</h3>
-          <div id="admin-reported" class="space-y-2"></div>
         </div>
 
         <div>
@@ -463,6 +471,7 @@
           </div>
           <div id="admin-logs" class="text-xs space-y-1"></div>
         </div>
+
       </div>
     </section>
   </main>
