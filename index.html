@@ -163,7 +163,7 @@
         <p id="publish-warning" class="hidden mb-4 p-3 text-sm rounded bg-red-50 border border-red-200 text-red-700">
           Il catalogo dei valori non è ancora attivo: la pubblicazione sarà possibile appena l'amministratore lo attiva.
         </p>
-        <form id="publish-form" onsubmit="publishOffer(event)">
+        <form id="publish-form" novalidate onsubmit="publishOffer(event)">
           <div class="mb-4">
             <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
             <div class="flex bg-gray-100 rounded-lg p-1 space-x-1 shadow-md">
@@ -184,7 +184,7 @@
           </div>
 
           <!-- FOTO -->
-          <div class="mb-4">
+          <div class="mb-4" id="foto-box">
             <label class="block text-sm font-medium text-gray-700">Foto</label>
             <p id="img-hint" class="text-xs text-gray-500 mb-2"></p>
             <div class="foto-actions">
@@ -273,6 +273,7 @@
             <div id="valuation-help" class="mt-2 space-y-1"></div>
           </details>
 
+          <p id="publish-errori" class="publish-errori hidden" role="alert"></p>
           <button type="submit" id="publish-btn" class="w-full flex justify-center py-3 px-4 rounded-md shadow-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700">Pubblica</button>
         </form>
       </div>
