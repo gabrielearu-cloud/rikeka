@@ -235,6 +235,7 @@ function renderSottocategorie() {
 window.pickCat = function (k) {
   if (!state.catalog.sottocategorie[k]) return;
   $('bene-sottocategoria').value = k;
+  pulisciCampo($('cat-button'));
   userPickedSub = true;
   window.closeCatSheet();
   paintCatButton();
@@ -305,6 +306,7 @@ window.onOfferTextChange = function () {
 };
 window.toggleOfferType = function (type) {
   currentOfferType = type;
+  pulisciTuttiICampi();
   const on = type === 'bene' ? $('type-bene') : $('type-servizio');
   const off = type === 'bene' ? $('type-servizio') : $('type-bene');
   off.classList.remove('bg-green-600', 'bg-blue-600', 'text-white', 'shadow-lg');
@@ -370,7 +372,7 @@ function updateFotoLabels() {
 }
 
 // Versione dell'app: deve essere uguale a VERSIONE in sw.js (si vede in fondo al Profilo)
-export const APP_VERSIONE = 'rikeka-v33d';
+export const APP_VERSIONE = 'rikeka-v33e';
 
 // Anti-flood (gli stessi valori sono in firestore.rules, match /quote)
 const ANNUNCI_INTERVALLO_MS = 31 * 1000;   // 1 secondo di margine sui 30 delle regole
@@ -391,6 +393,7 @@ async function setFoto(index, file) {
       compressImage(file, { maxSide: 360, quality: 0.55, maxChars: Math.min(THUMB_MAX_CHARS, THUMB_LEGGERA) })
     ]);
     pendingFotos[index] = { full, thumb };
+    if (currentOfferType === 'bene' && pendingFotos.filter((f) => f && f.full).length >= (state.isAdmin ? 0 : minFotoBeni(state.catalog))) pulisciCampo($('foto-box'));
     label.innerHTML = `<img src="${thumb}" alt="Anteprima foto ${index + 1}">`;
     $('slot-remove-' + index).classList.remove('hidden');
   } catch (e) {
@@ -1078,6 +1081,70 @@ function loadChatList() {
 }
 
 // ---------- 8. ANNUNCI ----------
+// ---------- Campi obbligatori: quelli mancanti diventano rossi con una spiegazione ----------
+function segnaCampo(el, msg) {
+  if (!el) return;
+  el.classList.add('campo-errore');
+  el.setAttribute('aria-invalid', 'true');
+  const id = 'err-' + (el.id || Math.random().toString(36).slice(2));
+  if (!document.getElementById(id)) {
+    const p = document.createElement('p');
+    p.id = id; p.className = 'campo-msg'; p.textContent = msg;
+    el.insertAdjacentElement('afterend', p);
+  } else document.getElementById(id).textContent = msg;
+}
+function pulisciCampo(el) {
+  if (!el) return;
+  el.classList.remove('campo-errore');
+  el.removeAttribute('aria-invalid');
+  document.getElementById('err-' + el.id)?.remove();
+  if (!document.querySelector('#publish-form .campo-errore')) $('publish-errori')?.classList.add('hidden');
+}
+function pulisciTuttiICampi() {
+  document.querySelectorAll('#publish-form .campo-errore').forEach(pulisciCampo);
+  $('publish-errori')?.classList.add('hidden');
+}
+function controllaCampiObbligatori() {
+  pulisciTuttiICampi();
+  const errori = [];
+  const vuoto = (id) => !String(val(id) || '').trim();
+  const t = val('title').trim(), d = val('description').trim();
+  if (t.length < TITOLO_MIN) errori.push([$('title'), t ? `Il titolo è troppo corto: almeno ${TITOLO_MIN} caratteri.` : 'Scrivi un titolo.']);
+  if (d.length < DESCR_MIN) errori.push([$('description'), d ? `La descrizione è troppo corta: almeno ${DESCR_MIN} caratteri.` : 'Scrivi una descrizione.']);
+  if (currentOfferType === 'bene') {
+    const minimo = !state.isAdmin ? minFotoBeni(state.catalog) : 0;
+    const n = pendingFotos.filter((f) => f && f.full).length;
+    if (n < minimo) errori.push([$('foto-box'), `Aggiungi almeno ${minimo === 1 ? '1 foto' : minimo + ' foto'}.`]);
+    if (vuoto('bene-sottocategoria')) errori.push([$('cat-button'), 'Scegli la categoria.']);
+    if (vuoto('bene-marca')) errori.push([$('bene-marca'), 'Scrivi la marca (se non la sai: «Senza marca»).']);
+    if (vuoto('bene-modello')) errori.push([$('bene-modello'), 'Scrivi il modello (se non lo sai: «Non so»).']);
+    if (!(Number(val('bene-prezzo')) > 0)) errori.push([$('bene-prezzo'), 'Indica il prezzo da nuovo.']);
+    const anno = Number(val('bene-anno'));
+    if (!Number.isInteger(anno) || anno < 1950 || anno > new Date().getFullYear() + 1) errori.push([$('bene-anno'), 'Indica l\'anno di acquisto (es. 2022).']);
+    if (vuoto('bene-condizione')) errori.push([$('bene-condizione'), 'Scegli la condizione.']);
+  } else {
+    if (vuoto('serv-livello')) errori.push([$('serv-livello'), 'Scegli il tipo di prestazione.']);
+    if (!(Number(val('serv-ore')) > 0)) errori.push([$('serv-ore'), 'Indica la durata in ore.']);
+  }
+  if (!errori.length) return true;
+  errori.forEach(([el, msg]) => segnaCampo(el, msg));
+  const box = $('publish-errori');
+  box.textContent = errori.length === 1
+    ? '⚠️ Manca un campo obbligatorio: è evidenziato in rosso.'
+    : `⚠️ Mancano ${errori.length} campi obbligatori: sono evidenziati in rosso.`;
+  box.classList.remove('hidden');
+  const primo = errori[0][0];
+  primo?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (primo && ['INPUT', 'TEXTAREA', 'SELECT'].includes(primo.tagName)) setTimeout(() => primo.focus({ preventScroll: true }), 300);
+  logEvent('publish_missing_fields', { n: errori.length, tipo: currentOfferType });
+  return false;
+}
+// Appena si compila un campo segnato, il rosso sparisce
+['input', 'change'].forEach((ev) => document.addEventListener(ev, (e) => {
+  const el = e.target;
+  if (el?.closest?.('#publish-form') && el.classList.contains('campo-errore')) pulisciCampo(el);
+}));
+
 window.publishOffer = async function (event) {
   event.preventDefault();
   const me = auth.currentUser;
@@ -1085,6 +1152,7 @@ window.publishOffer = async function (event) {
   if (state.sospeso) return alert('Il tuo account è sospeso: non puoi pubblicare annunci.');
   if (!state.catalogOnServer) return alert("Il catalogo dei valori non è ancora stato attivato dall'amministratore.");
 
+  if (!controllaCampiObbligatori()) return;   // campi mancanti evidenziati in rosso
   const title = val('title').trim();
   const description = val('description').trim();
   if (!title || !description) return alert('Compila titolo e descrizione.');
