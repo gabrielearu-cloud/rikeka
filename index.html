@@ -702,6 +702,19 @@
   </div>
 </div>
 
+<!-- MODAL: LUOGO DELL'INCONTRO (solo chi regala) -->
+<div id="luogo-modal" class="modal-overlay" style="z-index:260" onclick="chiudiLuogo()">
+  <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm" onclick="event.stopPropagation()">
+    <h3 class="text-lg font-semibold text-gray-800 mb-1">📍 Luogo dell'incontro</h3>
+    <p class="text-sm text-gray-600 mb-3">Scrivi l'indirizzo dove consegnerai. L'altra persona potrà aprirlo con un tocco in Google Maps o in Mappe.</p>
+    <input id="luogo-input" type="text" class="field text-sm" maxlength="150" autocomplete="off" placeholder="Es.: Piazza Trento e Trieste, Monza" oninput="aggiornaLuogo()" onkeydown="if(event.key==='Enter'){event.preventDefault();salvaLuogo()}">
+    <p class="text-xs text-gray-500 mt-1"><span id="luogo-count">0</span>/150 · scrivi anche la città</p>
+    <p class="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2 mt-2">🛡 Consiglio: meglio un luogo pubblico (una piazza, un bar, l'ingresso di un supermercato). L'indirizzo lo vede solo l'altra persona della chat.</p>
+    <button id="luogo-salva" disabled onclick="salvaLuogo()" class="w-full mt-4 py-3 rounded-md text-sm font-medium text-white bg-green-600 disabled:opacity-50">Salva il luogo</button>
+    <button onclick="chiudiLuogo()" class="w-full text-center py-2 mt-2 text-sm text-gray-500 hover:text-gray-800">Annulla</button>
+  </div>
+</div>
+
 <!-- MODAL: PROBLEMA SU UNO SCAMBIO RICEVUTO (entro 48 ore) -->
 <div id="contest-modal" class="modal-overlay" style="z-index:260" onclick="chiudiContestazione()">
   <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm" onclick="event.stopPropagation()">

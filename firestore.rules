@@ -803,10 +803,25 @@ service cloud.firestore {
             && request.resource.data.lastMessageSenderId == request.auth.uid
             && request.resource.data.lastMessageTimestamp == request.time)
           || nascondiOk()
+          || luogoOk()
         );
 
       allow delete: if signedIn() && request.auth.uid in resource.data.users
         && eliminataDaEntrambi(resource.data);
+
+      // Luogo dell'incontro: lo indica solo chi regala; lo vedono solo i due della chat
+      function luogoOk() {
+        let l = request.resource.data.luogo;
+        return request.auth.uid == resource.data.ownerId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['luogo'])
+          && l is map
+          && l.keys().hasOnly(['indirizzo', 'at'])
+          && l.indirizzo is string
+          && l.indirizzo.size() >= 5
+          && l.indirizzo.size() <= 150
+          && testoPulito(l.indirizzo)
+          && l.at == request.time;
+      }
 
       match /messages/{messageId} {
         allow read: if signedIn() && request.auth.uid in chatUsers();
