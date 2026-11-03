@@ -702,3 +702,14 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neu
 @media (min-width: 1024px) {
   #admin-screen.active > .p-4.space-y-6 > .adm-dafare, #admin-screen.active > .p-4.space-y-6 > .adm-divisore { grid-column: 1 / -1; }
 }
+
+/* ---------- v33d: luogo dell'incontro in chat ---------- */
+.deal-luogo { margin-top: .55rem; padding-top: .5rem; border-top: 1px dashed #d1d5db; font-size: .85rem; color: #1f2937; }
+.deal-luogo p { margin: 0; line-height: 1.35; overflow-wrap: anywhere; }
+.luogo-label { color: #6b7280; }
+.luogo-attesa { color: #6b7280; font-size: .8rem; }
+.luogo-azioni { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .4rem; }
+.luogo-btn { display: inline-flex; align-items: center; gap: .25rem; padding: .45rem .75rem; border-radius: .55rem; border: 1px solid #93c5fd; background: #eff6ff; color: #1d4ed8; font-size: .82rem; font-weight: 600; text-decoration: none; cursor: pointer; font-family: inherit; }
+.luogo-btn:hover { background: #dbeafe; }
+.luogo-modifica { border-color: #d1d5db; background: #fff; color: #374151; }
+.luogo-imposta { width: 100%; justify-content: center; border-style: dashed; }
