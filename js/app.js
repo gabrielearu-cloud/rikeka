@@ -370,7 +370,7 @@ function updateFotoLabels() {
 }
 
 // Versione dell'app: deve essere uguale a VERSIONE in sw.js (si vede in fondo al Profilo)
-export const APP_VERSIONE = 'rikeka-v33c';
+export const APP_VERSIONE = 'rikeka-v33d';
 
 // Anti-flood (gli stessi valori sono in firestore.rules, match /quote)
 const ANNUNCI_INTERVALLO_MS = 31 * 1000;   // 1 secondo di margine sui 30 delle regole
@@ -678,10 +678,69 @@ function renderChatDeal() {
     stato = 'Annuncio non disponibile'; cls = 'deal-off';
   }
   if (turno) { cls += ' deal-turno'; stato = `👉 Tocca a te · ${stato}`; }
+  // Luogo dell'incontro: durante la trattativa e la consegna, solo per la persona scelta
+  const luogo = perQuesto && ['in_trattativa', 'consegnato'].includes(o.status) ? htmlLuogo(chat, isOwner, altro) : '';
   box.className = `chat-deal ${cls}`;
   box.innerHTML = `<div class="deal-head"><span class="deal-state">${stato}</span><span class="deal-title">${esc(o.title)}</span></div>
-    ${testo ? `<p class="deal-text">${testo}</p>` : ''}${azioni ? `<div class="deal-actions">${azioni}</div>` : ''}`;
+    ${testo ? `<p class="deal-text">${testo}</p>` : ''}${azioni ? `<div class="deal-actions">${azioni}</div>` : ''}${luogo}`;
 }
+
+// ---------- Luogo dell'incontro (lo indica chi regala, solo indirizzo scritto) ----------
+const IS_IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function linkMappe(indirizzo) {
+  const q = encodeURIComponent(indirizzo);
+  const google = `<a class="luogo-btn" href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">🗺 Google Maps</a>`;
+  const apple = `<a class="luogo-btn" href="https://maps.apple.com/?q=${q}" target="_blank" rel="noopener">🗺 Mappe</a>`;
+  return IS_IOS ? apple + google : google;
+}
+function htmlLuogo(chat, isOwner, altro) {
+  const ind = typeof chat?.luogo?.indirizzo === 'string' ? chat.luogo.indirizzo : '';
+  if (ind) {
+    return `<div class="deal-luogo">
+      <p>📍 <span class="luogo-label">Luogo dell'incontro:</span> <b>${esc(ind)}</b></p>
+      <div class="luogo-azioni">${linkMappe(ind)}${isOwner ? '<button type="button" class="luogo-btn luogo-modifica" onclick="apriLuogo()">✏️ Modifica</button>' : ''}</div>
+    </div>`;
+  }
+  return isOwner
+    ? `<div class="deal-luogo"><button type="button" class="luogo-btn luogo-imposta" onclick="apriLuogo()">📍 Indica il luogo dell'incontro</button></div>`
+    : `<div class="deal-luogo"><p class="luogo-attesa">📍 ${esc(altro)} non ha ancora indicato il luogo dell'incontro.</p></div>`;
+}
+window.apriLuogo = function () {
+  const chat = chatCtx?.chat;
+  if (!chat || chat.ownerId !== auth.currentUser?.uid) return;
+  $('luogo-input').value = chat.luogo?.indirizzo || '';
+  window.aggiornaLuogo();
+  $('luogo-modal').style.display = 'flex';
+  setTimeout(() => $('luogo-input').focus(), 50);
+};
+window.chiudiLuogo = function () { $('luogo-modal').style.display = 'none'; };
+window.aggiornaLuogo = function () {
+  const n = $('luogo-input').value.trim().length;
+  $('luogo-count').textContent = $('luogo-input').value.length;
+  $('luogo-salva').disabled = n < 5;
+};
+window.salvaLuogo = async function () {
+  const chat = chatCtx?.chat, chatId = currentChatId;
+  const ind = $('luogo-input').value.replace(/\s+/g, ' ').trim().slice(0, 150);
+  if (!chat || !chatId || ind.length < 5) return;
+  const vietata = parolaVietata(ind);
+  if (vietata) return alert(`⛔ L'indirizzo contiene parole non consentite («${vietata}»).`);
+  $('luogo-salva').disabled = true;
+  try {
+    await updateDoc(doc(db, 'chats', chatId), { luogo: { indirizzo: ind, at: serverTimestamp() } });
+    chat.luogo = { indirizzo: ind };
+    renderChatDeal();
+    window.chiudiLuogo();
+    await postChatEventTo(chatId, `📍 Luogo dell'incontro: ${ind}`);
+    notify('message', { chatId });
+    logEvent('meeting_place_set', { chatId });
+  } catch (e) {
+    reportError('salvaLuogo', e, { chatId });
+    alert('Luogo non salvato: ' + friendlyError(e));
+  } finally {
+    $('luogo-salva').disabled = false;
+  }
+};
 
 // Chi regala sceglie la persona con cui sta chattando
 window.reserveFromChat = async function () {
@@ -1004,6 +1063,14 @@ function loadChatList() {
   const q = query(collection(db, 'chats'), where('users', 'array-contains', me.uid));
   unsub.chats = onSnapshot(q, (snap) => {
     allChatsData = snap.docs.map((d) => ({ id: d.id, data: d.data({ serverTimestamps: 'estimate' }) }));
+    // chat aperta: aggiorna i suoi dati (es. il luogo dell'incontro appena indicato)
+    if (chatCtx?.chat && currentChatId) {
+      const nuova = allChatsData.find((c) => c.id === currentChatId)?.data;
+      if (nuova && JSON.stringify(nuova.luogo || null) !== JSON.stringify(chatCtx.chat.luogo || null)) {
+        chatCtx.chat = nuova;
+        renderChatDeal();
+      }
+    }
     calcolaNonLette();
     renderChatList();
     apriChatInAttesa();
