@@ -370,7 +370,7 @@ function updateFotoLabels() {
 }
 
 // Versione dell'app: deve essere uguale a VERSIONE in sw.js (si vede in fondo al Profilo)
-export const APP_VERSIONE = 'rikeka-v33b';
+export const APP_VERSIONE = 'rikeka-v33c';
 
 // Anti-flood (gli stessi valori sono in firestore.rules, match /quote)
 const ANNUNCI_INTERVALLO_MS = 31 * 1000;   // 1 secondo di margine sui 30 delle regole
@@ -2821,6 +2821,26 @@ window.closeCamera = function () {
 
 // ---------- REPUTAZIONE: scambi conclusi e % di giudizi positivi ----------
 
+// Icone dei livelli disegnate in SVG: si vedono uguali ovunque, anche su PC vecchi
+// (es. Windows 7) che non hanno le emoji delle medaglie
+function medaglia(colore, bordo) {
+  return `<path d="M7 1h4l2 7H9z" fill="#3b82f6"/><path d="M17 1h-4l-2 7h4z" fill="#ef4444"/>`
+    + `<circle cx="12" cy="15" r="7.5" fill="${colore}" stroke="${bordo}" stroke-width="1.5"/>`
+    + `<path d="M12 10.6l1.4 2.8 3 .4-2.2 2.1.5 3-2.7-1.4-2.7 1.4.5-3-2.2-2.1 3-.4z" fill="#fff" fill-opacity=".85"/>`;
+}
+const ICONE_LIVELLO = {
+  'lv-0': '<path d="M12 22V12" stroke="#15803d" stroke-width="2" stroke-linecap="round"/><path d="M12 13C12 8 8.5 5.5 4 5.5c0 4.5 3 7.5 8 7.5z" fill="#22c55e"/><path d="M12 11c0-4 2.8-6.5 7-6.5 0 4-2.8 6.5-7 6.5z" fill="#4ade80"/>',
+  'lv-1': '<path d="M5 19C5 10 11 4 20 4c0 9-6 15-15 15z" fill="#22c55e"/><path d="M5 19L15 9" stroke="#14532d" stroke-width="1.6" stroke-linecap="round"/>',
+  'lv-2': medaglia('#cd7f32', '#9a5b1f'),
+  'lv-3': medaglia('#c0c7cf', '#8b949e'),
+  'lv-4': medaglia('#f5c518', '#c99a06'),
+  'lv-5': '<path d="M6 3h12l4 6-10 13L2 9z" fill="#38bdf8"/><path d="M2 9h20M8 3l4 19M16 3l-4 19M8 3L6 9l6 13 6-13-2-6" stroke="#0369a1" stroke-width="1" fill="none" stroke-linejoin="round"/>',
+  'lv-warn': '<path d="M12 2L23 21H1z" fill="#f59e0b"/><path d="M12 9v5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.4" fill="#fff"/>'
+};
+function iconaLivello(cls, dim = 16) {
+  return `<svg class="lv-icona" width="${dim}" height="${dim}" viewBox="0 0 24 24" aria-hidden="true">${ICONE_LIVELLO[cls] || ICONE_LIVELLO['lv-0']}</svg>`;
+}
+
 // Livelli di affidabilità: salgono con i giudizi positivi ricevuti, se la percentuale di 👍 resta alta
 export const LIVELLI_AFFIDABILITA = [
   { min: 50, pct: 95, icona: '💎', nome: 'Ambasciatore', cls: 'lv-5' },
@@ -2846,7 +2866,7 @@ export function testoReputazione(u) {
   const scambi = num0(u?.completedSwaps);
   const lv = livelloAffidabilita(u);
   if (!scambi && !lv.tot) return '<span class="rep-new">🌱 nuovo</span>';
-  const badge = `<span class="rep-badge ${lv.cls}" title="Affidabilità: ${lv.pos} giudizi positivi su ${lv.tot}">${lv.icona} ${lv.nome}</span>`;
+  const badge = `<span class="rep-badge ${lv.cls}" title="Affidabilità: ${lv.pos} giudizi positivi su ${lv.tot}">${iconaLivello(lv.cls, 13)} ${lv.nome}</span>`;
   return `${badge} · ${scambi} ${scambi === 1 ? 'scambio' : 'scambi'}${lv.pct === null ? '' : ` · <span class="${lv.pct < 70 ? 'rep-low' : 'rep-ok'}">👍 ${lv.pct}%</span>`}`;
 }
 
@@ -2857,16 +2877,26 @@ function boxAffidabilita(u) {
   if (lv.cls === 'lv-warn') prossimo = 'Troppi giudizi negativi.';
   else if (lv.prossimo) {
     const manca = lv.prossimo.min - lv.pos;
-    const meta = `<b>${lv.prossimo.icona} ${lv.prossimo.nome}</b>`;
+    const meta = `<b>${iconaLivello(lv.prossimo.cls, 15)} ${lv.prossimo.nome}</b>`;
     prossimo = manca > 0
       ? `Ancora <b>${manca}</b> ${manca === 1 ? 'giudizio positivo' : 'giudizi positivi'} per diventare ${meta}.`
       : `Servono più giudizi 👍 per diventare ${meta}.`;
   } else prossimo = 'Hai raggiunto il livello più alto. Grazie!';
   const scala = [...LIVELLI_AFFIDABILITA].reverse().map((l) =>
-    `<span class="aff-step${l.cls === lv.cls ? ' aff-step-on' : ''}" title="${l.nome}">${l.icona}<small>${l.min}+</small></span>`).join('');
+    `<span class="aff-step${l.cls === lv.cls ? ' aff-step-on' : ''}" title="${l.nome}">${iconaLivello(l.cls, 24)}<small>${l.min}+</small></span>`).join('');
+  const regole = LIVELLI_AFFIDABILITA.slice().reverse().map((l) =>
+    `<li>${iconaLivello(l.cls, 16)} <b>${l.nome}</b>: ${l.min} ${l.min === 1 ? 'giudizio' : 'giudizi'} 👍${l.pct ? `, almeno ${l.pct}% positivi` : ''}</li>`).join('');
   return `<div class="aff-box">
-    <p class="aff-label">La tua affidabilità</p>
-    <p class="aff-livello"><span class="rep-badge ${lv.cls}">${lv.icona} ${lv.nome}</span></p>
+    <div class="aff-head">
+      <p class="aff-label">La tua affidabilità</p>
+      <button type="button" class="info-btn aff-info-btn" onclick="this.closest('.aff-box').classList.toggle('aff-info-aperta')" aria-label="Come funzionano i livelli">?</button>
+    </div>
+    <div class="aff-info">
+      <p>Il livello sale con i giudizi 👍 che ricevi dopo ogni scambio, regalando o ricevendo, purché la percentuale di giudizi positivi resti alta.</p>
+      <ul>${regole}</ul>
+      <p>Con troppi giudizi negativi (meno del 70% positivi) compare ${iconaLivello('lv-warn', 14)} <b>Da verificare</b>. Il livello si vede accanto al tuo nome in annunci e chat.</p>
+    </div>
+    <p class="aff-livello"><span class="rep-badge ${lv.cls}">${iconaLivello(lv.cls, 18)} ${lv.nome}</span></p>
     <div class="aff-scala">${scala}</div>
     <p class="aff-next">${prossimo}</p>
   </div>`;

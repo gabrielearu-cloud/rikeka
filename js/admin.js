@@ -25,6 +25,66 @@ export async function checkAdmin(uid) {
   } catch (_) { state.isAdmin = false; }
   $('admin-btn').classList.toggle('hidden', !state.isAdmin);
   document.dispatchEvent(new Event('admin-changed'));
+  if (state.isAdmin) contaDaFare();
+}
+
+// ---------- DA FARE: le cose da valutare rimaste in sospeso, ben visibili ----------
+const DA_FARE = [
+  { k: 'contest', icona: '⚖️', nome: 'Contestazioni', sez: 'sez-contest' },
+  { k: 'review', icona: '🔍', nome: 'Annunci da verificare', sez: 'sez-review' },
+  { k: 'reported', icona: '🚩', nome: 'Annunci segnalati', sez: 'sez-reported' },
+  { k: 'control', icona: '🆘', nome: 'Scambi fermi', sez: 'sez-control' },
+  { k: 'bugs', icona: '🐞', nome: 'Problemi segnalati', sez: 'sez-bugs' }
+];
+const conteggi = {};
+function segnaDaFare(k, n) {
+  conteggi[k] = Number.isInteger(n) ? n : null;
+  disegnaDaFare();
+}
+function disegnaDaFare() {
+  const tot = DA_FARE.reduce((t, x) => t + (conteggi[x.k] || 0), 0);
+  // pulsante "Pannello Admin" nel Profilo
+  const btn = $('admin-btn');
+  if (btn) btn.innerHTML = '🛠 Pannello Admin' + (tot ? ` <span class="adm-btn-badge">${tot} da valutare</span>` : '');
+  // riquadri in cima al pannello
+  const box = $('adm-dafare-tiles');
+  if (box) {
+    box.innerHTML = DA_FARE.map((x) => {
+      const n = conteggi[x.k];
+      const cls = n === undefined || n === null ? 'adm-tile-ignoto' : n > 0 ? 'adm-tile-urgente' : 'adm-tile-ok';
+      return `<button type="button" class="adm-tile ${cls}" onclick="vaiAllaSezione('${x.sez}')">
+        <span class="adm-tile-n">${n === undefined || n === null ? '…' : n > 0 ? n : '✓'}</span>
+        <span class="adm-tile-nome">${x.icona} ${x.nome}</span></button>`;
+    }).join('');
+    $('adm-dafare')?.classList.toggle('adm-dafare-tutto-ok', tot === 0 && DA_FARE.every((x) => conteggi[x.k] === 0));
+  }
+  // sezioni con qualcosa in sospeso: bordo colorato e numero accanto al titolo
+  DA_FARE.forEach((x) => {
+    const sez = $(x.sez);
+    if (!sez) return;
+    const n = conteggi[x.k] || 0;
+    sez.classList.toggle('adm-urgente', n > 0);
+    const h = sez.querySelector('h3');
+    if (!h) return;
+    h.querySelector('.adm-conta')?.remove();
+    if (n > 0) h.insertAdjacentHTML('beforeend', ` <span class="adm-conta">${n}</span>`);
+  });
+}
+window.vaiAllaSezione = function (id) { $(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+
+// Conteggio veloce (pochissime letture) appena un amministratore entra: serve per il numero sul pulsante
+export async function contaDaFare() {
+  const conta = async (k, q) => {
+    try { segnaDaFare(k, (await getCountFromServer(q)).data().count); } catch (e) { console.warn('conteggio', k, e?.code || e); }
+  };
+  const off = collection(db, 'offerte');
+  await Promise.all([
+    conta('contest', query(collection(db, 'contestazioni'), where('stato', '==', 'aperta'))),
+    conta('review', query(off, where('status', '==', 'in_verifica'))),
+    conta('reported', query(off, where('reportCount', '>=', 1))),
+    conta('control', query(off, where('aiutoRichiesto', '==', true), where('status', '==', 'consegnato'))),
+    conta('bugs', collection(db, 'problemi'))
+  ]);
 }
 
 window.openAdmin = async function () {
@@ -36,6 +96,7 @@ window.openAdmin = async function () {
 
 window.refreshAdmin = async function () {
   if (!state.isAdmin) return;
+  disegnaDaFare();
   await Promise.all([loadStats(), loadContestazioniAdmin(), loadBugs(), loadManutenzione(), loadIscrizioni(), loadAdmins(), loadControl(), loadReviewQueue(), loadReported(), loadLogs()]);
   fillCatalogEditor();
 };
@@ -48,6 +109,7 @@ async function loadContestazioniAdmin() {
   box.innerHTML = '<p class="text-xs text-gray-500">Caricamento...</p>';
   try {
     const snap = await getDocs(query(collection(db, 'contestazioni'), where('stato', '==', 'aperta'), limit(50)));
+    segnaDaFare('contest', snap.size);
     if (snap.empty) { box.innerHTML = '<p class="text-xs text-gray-400">Nessuna contestazione aperta. 🎉</p>'; return; }
     box.innerHTML = snap.docs.map((d) => {
       const c = d.data(), t = tsToDate(c.createdAt), kp = Number(c.cpValue) || 0;
@@ -108,6 +170,7 @@ async function loadBugs() {
   box.innerHTML = '<p class="text-xs text-gray-500">Caricamento...</p>';
   try {
     const snap = await getDocs(query(collection(db, 'problemi'), orderBy('ts', 'desc'), limit(30)));
+    segnaDaFare('bugs', snap.size);
     if (snap.empty) { box.innerHTML = '<p class="text-xs text-gray-400">Nessun problema segnalato. 🎉</p>'; return; }
     box.innerHTML = snap.docs.map((d) => {
       const p = d.data(), t = tsToDate(p.ts);
@@ -257,6 +320,7 @@ async function loadReviewQueue() {
   try {
     const snap = await getDocs(query(collection(db, 'offerte'), where('status', '==', 'in_verifica'), limit(50)));
     snap.docs.forEach((d) => state.offers.set(d.id, d.data()));
+    segnaDaFare('review', snap.size);
     box.innerHTML = snap.empty
       ? '<p class="text-gray-400 text-xs">Nessun annuncio da verificare.</p>'
       : snap.docs.map((d) => adminOfferCard(d.id, d.data(), `
@@ -302,6 +366,7 @@ async function loadReported() {
   try {
     const snap = await getDocs(query(collection(db, 'offerte'), where('reportCount', '>=', 1), limit(50)));
     const docs = snap.docs.filter((d) => d.data().status !== 'concluso');
+    segnaDaFare('reported', docs.length);
     if (!docs.length) { box.innerHTML = '<p class="text-gray-400 text-xs">Nessuna segnalazione.</p>'; return; }
     const cards = await Promise.all(docs.map(async (d) => {
       const o = d.data();
@@ -634,6 +699,7 @@ async function loadControl() {
     let html = '';
 
     const fermi = aiuti.docs.filter((d) => d.data().status === 'consegnato');
+    segnaDaFare('control', fermi.length);
     html += `<p class="text-xs font-semibold text-gray-600">🆘 Scambi fermi (${fermi.length})</p>`;
     html += fermi.map((d) => {
       const o = d.data();
