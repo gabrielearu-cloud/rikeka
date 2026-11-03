@@ -713,3 +713,10 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neu
 .luogo-btn:hover { background: #dbeafe; }
 .luogo-modifica { border-color: #d1d5db; background: #fff; color: #374151; }
 .luogo-imposta { width: 100%; justify-content: center; border-style: dashed; }
+
+/* ---------- v33e: campi obbligatori mancanti in rosso ---------- */
+.campo-errore { border-color: #dc2626 !important; background-color: #fef2f2 !important; box-shadow: 0 0 0 3px rgba(220,38,38,.15) !important; }
+#foto-box.campo-errore { padding: .6rem; border: 2px solid #dc2626; border-radius: .75rem; }
+.campo-msg { margin: .3rem 0 0; font-size: .78rem; font-weight: 600; color: #b91c1c; }
+.campo-msg::before { content: "⚠ "; }
+.publish-errori { margin: 0 0 .75rem; padding: .65rem .8rem; border-radius: .6rem; background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; font-size: .88rem; font-weight: 600; }
