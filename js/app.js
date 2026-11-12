@@ -11,7 +11,7 @@ import { signInWithPopup, onAuthStateChanged, signOut, reauthenticateWithPopup, 
 import {
   collection, addDoc, query, where, onSnapshot, doc, updateDoc, getDoc, setDoc, orderBy,
   getDocs, limit, runTransaction, serverTimestamp, writeBatch, increment, deleteField, deleteDoc,
-  terminate, clearIndexedDbPersistence
+  terminate, clearIndexedDbPersistence, startAfter, Timestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { auth, db, googleProvider } from './firebase.js';
 import { PAGE_SIZE, FOTO_MAX_CHARS, THUMB_MAX_CHARS, LEGAL } from './config.js';
@@ -372,15 +372,15 @@ function updateFotoLabels() {
 }
 
 // Versione dell'app: deve essere uguale a VERSIONE in sw.js (si vede in fondo al Profilo)
-export const APP_VERSIONE = 'rikeka-v33e';
+export const APP_VERSIONE = 'rikeka-v33f';
 
 // Anti-flood (gli stessi valori sono in firestore.rules, match /quote)
 const ANNUNCI_INTERVALLO_MS = 31 * 1000;   // 1 secondo di margine sui 30 delle regole
 const ANNUNCI_MAX_GIORNO = 20;
 
-// Miniatura in elenco: ~12 KB. Si scarica a ogni apertura della home, quindi e' il dato
+// Miniatura in elenco: ~7 KB. Si scarica a ogni apertura della home, quindi e' il dato
 // che pesa di piu' sui limiti gratuiti di Firebase. La foto grande si scarica solo se la tocchi.
-const THUMB_LEGGERA = 16000;
+const THUMB_LEGGERA = 9000;   // ~7 KB: metà di prima, a parità di nitidezza nella scheda
 
 // Elabora una foto (ridimensiona + miniatura) e la mette nello spazio indicato
 async function setFoto(index, file) {
@@ -389,8 +389,8 @@ async function setFoto(index, file) {
   label.innerHTML = '<span class="foto-loading">…</span>';
   try {
     const [full, thumb] = await Promise.all([
-      compressImage(file, { maxSide: 900, quality: 0.72, maxChars: FOTO_MAX_CHARS }),
-      compressImage(file, { maxSide: 360, quality: 0.55, maxChars: Math.min(THUMB_MAX_CHARS, THUMB_LEGGERA) })
+      compressImage(file, { maxSide: 850, quality: 0.7, maxChars: Math.min(FOTO_MAX_CHARS, 130000) }),
+      compressImage(file, { maxSide: 300, quality: 0.5, maxChars: Math.min(THUMB_MAX_CHARS, THUMB_LEGGERA) })
     ]);
     pendingFotos[index] = { full, thumb };
     if (currentOfferType === 'bene' && pendingFotos.filter((f) => f && f.full).length >= (state.isAdmin ? 0 : minFotoBeni(state.catalog))) pulisciCampo($('foto-box'));
@@ -510,6 +510,8 @@ onAuthStateChanged(auth, (user) => {
     loadMyOffers(user.uid);
     loadToReceive(user.uid);
     loadContestazioni(user.uid);
+    seguiSostegno();
+    seguiVetrina();
     initPushUi();
     loadChatList();
     loadProfileData(user.uid);
@@ -1259,20 +1261,53 @@ window.deleteOffer = async function (docId) {
   }
 };
 
-window.loadMoreOffers = function () {
-  homePages++;
-  if (searchTerms.length) runSearch(); else loadOffers();
+// In home si caricano gli annunci piu' recenti, HOME_BATCH per volta, e si
+// mostrano ordinati per vicinanza alla zona dell'utente. La prima pagina resta
+// "in diretta"; le successive si scaricano una volta sola con «Mostra altri»,
+// partendo dall'ultimo annuncio già caricato (così non si rileggono quelli già visti).
+const HOME_BATCH = 12;
+let homeLive = [], homeExtra = [], homeCursor = null, caricandoAltri = false;
+function unisciHome() {
+  const visti = new Set();
+  homeOffers = [...homeLive, ...homeExtra].filter((o) => !visti.has(o.id) && visti.add(o.id));
+}
+window.loadMoreOffers = async function () {
+  if (caricandoAltri) return;
+  if (searchTerms.length) { homePages++; return runSearch(); }
+  if (!homeCursor) return;
+  caricandoAltri = true;
+  const btn = $('load-more');
+  btn.disabled = true; btn.textContent = 'Carico…';
+  try {
+    const snap = await getDocs(query(collection(db, 'offerte'),
+      where('status', 'in', ['disponibile', 'in_trattativa']),
+      orderBy('timestamp', 'desc'), startAfter(homeCursor), limit(HOME_BATCH)));
+    snap.docs.forEach((d) => {
+      const o = { id: d.id, data: d.data({ serverTimestamps: 'estimate' }) };
+      homeExtra.push(o); state.offers.set(o.id, o.data);
+    });
+    if (snap.docs.length) homeCursor = snap.docs[snap.docs.length - 1];
+    homeHasMore = snap.size >= HOME_BATCH;
+    unisciHome();
+    homePages++;
+    logEvent('home_more', { pagina: homePages, nuovi: snap.size });
+  } catch (e) {
+    reportError('loadMoreOffers', e);
+    alert('Non riesco a caricare altri annunci: ' + friendlyError(e));
+  } finally {
+    caricandoAltri = false;
+    btn.disabled = false; btn.textContent = 'Mostra altri annunci';
+    renderOffers();
+  }
 };
-
-// In home si caricano gli annunci piu' recenti (HOME_BATCH per volta) e si
-// mostrano ordinati per vicinanza alla zona dell'utente.
-const HOME_BATCH = 60;
 
 let offersTimer = null;
 function loadOffers() {
   unsub.offers?.();
   clearTimeout(offersTimer);
-  const lim = HOME_BATCH * homePages;
+  const lim = HOME_BATCH;
+  homeExtra = []; homeCursor = null; homePages = 1;
+  if (vetrinaCfg) caricaVetrina();   // aggiorna anche la vetrina «Appena regalati»
   const q = query(collection(db, 'offerte'),
     where('status', 'in', ['disponibile', 'in_trattativa']),
     orderBy('timestamp', 'desc'),
@@ -1285,9 +1320,13 @@ function loadOffers() {
   }, 8000);
   unsub.offers = onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
     if (!snap.metadata?.fromCache) { clearTimeout(offersTimer); mostraErroreAnnunci(null); }
-    homeOffers = snap.docs.map((d) => ({ id: d.id, data: d.data({ serverTimestamps: 'estimate' }) }));
-    homeOffers.forEach((o) => state.offers.set(o.id, o.data));
-    homeHasMore = snap.size >= lim;
+    homeLive = snap.docs.map((d) => ({ id: d.id, data: d.data({ serverTimestamps: 'estimate' }) }));
+    homeLive.forEach((o) => state.offers.set(o.id, o.data));
+    if (!homeExtra.length) {
+      homeCursor = snap.docs[snap.docs.length - 1] || null;
+      homeHasMore = snap.size >= lim;
+    }
+    unisciHome();
     renderOffers();
   }, async (e) => {
     clearTimeout(offersTimer);
@@ -2210,6 +2249,71 @@ function renderStorico() {
 function aggiornaPallinoGiudizi(n) {
   giudiziDaDare = n;
   updateProfileTabIndicator();
+}
+
+// ---------- Vetrina «Appena regalati»: ultimi scambi conclusi, per mostrare che Rikeka è viva ----------
+// Si accende dal Pannello Admin; conta solo gli scambi conclusi dopo la data «da» (azzerabile al lancio).
+const VETRINA_GIORNI = 7, VETRINA_MAX = 8;
+let unsubVetrinaCfg = null, vetrinaCfg = null;
+function seguiVetrina() {
+  unsubVetrinaCfg?.();
+  unsubVetrinaCfg = onSnapshot(doc(db, 'config', 'vetrina'), (snap) => {
+    vetrinaCfg = snap.exists() ? snap.data() : null;
+    caricaVetrina();
+  }, () => { vetrinaCfg = null; caricaVetrina(); });
+}
+async function caricaVetrina() {
+  const box = $('vetrina');
+  if (!box) return;
+  const da = tsToDate(vetrinaCfg?.daData)?.getTime() || 0;
+  if (vetrinaCfg?.attiva !== true || !da) { box.classList.add('hidden'); box.replaceChildren(); return; }
+  const inizio = Math.max(da, Date.now() - VETRINA_GIORNI * 864e5);
+  try {
+    const snap = await getDocs(query(collection(db, 'offerte'),
+      where('status', '==', 'concluso'),
+      where('completionDate', '>=', Timestamp.fromDate(new Date(inizio))),
+      orderBy('completionDate', 'desc'), limit(VETRINA_MAX)));
+    if (snap.empty) { box.classList.add('hidden'); box.replaceChildren(); return; }
+    const voci = snap.docs.map((d) => {
+      const o = d.data();
+      const quando = quandoPubblicato(o.completionDate) || '';
+      const src = safeImg(o.thumb) || (Array.isArray(o.images) ? o.images.map(safeImg).find(Boolean) : '');
+      const img = src
+        ? `<img src="${src}" alt="" loading="lazy">`
+        : `<span class="vetrina-ph">${o.type === 'servizio' ? '🤝' : '🎁'}</span>`;
+      return `<div class="vetrina-item">${img}<span class="vetrina-ok">✓ Regalato</span>
+        <span class="vetrina-tit">${esc(o.title)}</span><span class="vetrina-quando">${esc(quando)}</span></div>`;
+    }).join('');
+    const n = snap.size;
+    box.innerHTML = `<div class="vetrina-head"><b>✓ Appena regalati</b><span>${n < VETRINA_MAX
+      ? `${n} ${n === 1 ? 'scambio concluso' : 'scambi conclusi'} negli ultimi ${VETRINA_GIORNI} giorni`
+      : `negli ultimi ${VETRINA_GIORNI} giorni`}</span></div><div class="vetrina-lista">${voci}</div>`;
+    box.classList.remove('hidden');
+  } catch (e) {
+    box.classList.add('hidden');
+    reportError('caricaVetrina', e);   // se manca l'indice, nel Log c'è il link per crearlo
+  }
+}
+
+// ---------- «Sostieni Rikeka»: pulsante per le donazioni, acceso dal Pannello Admin ----------
+let unsubSostegno = null;
+function linkSostegnoValido(l) {
+  try { const u = new URL(l); return u.protocol === 'https:' && l.length <= 200; } catch (_) { return false; }
+}
+function seguiSostegno() {
+  unsubSostegno?.();
+  unsubSostegno = onSnapshot(doc(db, 'config', 'sostegno'), (snap) => {
+    const c = snap.exists() ? snap.data() : {};
+    const attivo = c.attivo === true && linkSostegnoValido(c.link || '');
+    document.querySelectorAll('.sostegno').forEach((box) => {
+      box.classList.toggle('hidden', !attivo);
+      const a = box.querySelector('a');
+      if (attivo && a) a.href = c.link;
+      const t = box.querySelector('.sostegno-testo');
+      if (attivo && t) t.textContent = (typeof c.testo === 'string' && c.testo.trim()) ||
+        'Rikeka è gratuita e senza pubblicità. Se ti è utile, puoi aiutarci a coprire i costi con una piccola donazione libera.';
+    });
+  }, () => document.querySelectorAll('.sostegno').forEach((b) => b.classList.add('hidden')));
 }
 
 // ---------- Contestazioni: chi riceve segnala un problema entro 48 ore ----------

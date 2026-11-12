@@ -97,7 +97,7 @@ window.openAdmin = async function () {
 window.refreshAdmin = async function () {
   if (!state.isAdmin) return;
   disegnaDaFare();
-  await Promise.all([loadStats(), loadContestazioniAdmin(), loadBugs(), loadManutenzione(), loadIscrizioni(), loadAdmins(), loadControl(), loadReviewQueue(), loadReported(), loadLogs()]);
+  await Promise.all([loadStats(), loadContestazioniAdmin(), loadBugs(), loadManutenzione(), loadSostegno(), loadVetrinaAdmin(), loadIscrizioni(), loadAdmins(), loadControl(), loadReviewQueue(), loadReported(), loadLogs()]);
   fillCatalogEditor();
 };
 
@@ -229,6 +229,85 @@ window.toggleManutenzione = async function () {
   } finally {
     btn.disabled = false;
   }
+};
+
+// ---------- Vetrina «Appena regalati» ----------
+let vetrAttiva = false, vetrDa = null;
+function paintVetrina() {
+  $('vetr-stato').textContent = vetrAttiva
+    ? `🟢 Visibile · conta dal ${vetrDa ? vetrDa.toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '…'}`
+    : '⚪ Nascosta';
+  $('vetr-btn').textContent = vetrAttiva ? 'Nascondi' : 'Mostra (parte da adesso)';
+}
+async function loadVetrinaAdmin() {
+  try {
+    const c = (await getDoc(doc(db, 'config', 'vetrina'))).data() || {};
+    vetrAttiva = c.attiva === true;
+    vetrDa = c.daData?.toDate?.() || null;
+  } catch (e) { reportError('admin.loadVetrina', e); }
+  paintVetrina();
+}
+async function scriviVetrina(attiva, azzera) {
+  try {
+    const dati = { attiva, by: auth.currentUser.uid, at: serverTimestamp() };
+    dati.daData = azzera || !vetrDa ? serverTimestamp() : Timestamp.fromDate(vetrDa);
+    await setDoc(doc(db, 'config', 'vetrina'), dati);
+    vetrAttiva = attiva;
+    if (azzera || !vetrDa) vetrDa = new Date();
+    paintVetrina();
+    logEvent(azzera ? 'showcase_reset' : (attiva ? 'showcase_on' : 'showcase_off'), {});
+  } catch (e) {
+    reportError('admin.scriviVetrina', e);
+    alert('Non salvato: ' + regoleVecchie(e).replace(/<[^>]+>/g, ''));
+  }
+}
+window.toggleVetrina = async function () {
+  if (vetrAttiva) return scriviVetrina(false, false);
+  if (!confirm('Mostrare la vetrina «Appena regalati»? Conterà solo gli scambi conclusi da adesso in poi.')) return;
+  return scriviVetrina(true, true);
+};
+window.azzeraVetrina = async function () {
+  if (!confirm('Azzerare la vetrina? Da adesso conteranno solo gli scambi conclusi da questo momento (le prove fatte finora spariscono).')) return;
+  return scriviVetrina(vetrAttiva, true);
+};
+
+// ---------- «Sostieni Rikeka» (donazioni): spento finché non lo accendi ----------
+let sostAttivo = false;
+function paintSostegno() {
+  $('sost-stato').textContent = sostAttivo ? '🟢 Pulsante visibile' : '⚪ Pulsante nascosto';
+  $('sost-btn').textContent = sostAttivo ? 'Nascondi' : 'Mostra';
+}
+async function loadSostegno() {
+  try {
+    const c = (await getDoc(doc(db, 'config', 'sostegno'))).data() || {};
+    sostAttivo = c.attivo === true;
+    $('sost-link').value = typeof c.link === 'string' ? c.link : '';
+    $('sost-testo').value = typeof c.testo === 'string' ? c.testo : '';
+  } catch (e) { reportError('admin.loadSostegno', e); }
+  paintSostegno();
+}
+async function scriviSostegno(attivo) {
+  const link = $('sost-link').value.trim(), testo = $('sost-testo').value.trim().slice(0, 200);
+  const ok = /^https:\/\/\S+$/.test(link);
+  if (attivo && !ok) { alert('Inserisci un link valido che inizi con https://'); return false; }
+  if (link && !ok) { alert('Il link deve iniziare con https://'); return false; }
+  try {
+    await setDoc(doc(db, 'config', 'sostegno'), { attivo, link: link.slice(0, 200), testo, by: auth.currentUser.uid, at: serverTimestamp() });
+    logEvent(attivo ? 'support_on' : 'support_off', {});
+    return true;
+  } catch (e) {
+    reportError('admin.scriviSostegno', e);
+    alert('Non salvato: ' + regoleVecchie(e).replace(/<[^>]+>/g, ''));
+    return false;
+  }
+}
+window.toggleSostegno = async function () {
+  const nuovo = !sostAttivo;
+  if (nuovo && !confirm('Mostrare a tutti il pulsante «Sostieni Rikeka»?')) return;
+  if (await scriviSostegno(nuovo)) { sostAttivo = nuovo; paintSostegno(); }
+};
+window.salvaSostegno = async function () {
+  if (await scriviSostegno(sostAttivo)) alert('Salvato.');
 };
 
 // ---------- Iscrizioni aperte / chiuse ----------
