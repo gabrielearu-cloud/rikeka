@@ -118,6 +118,28 @@ service cloud.firestore {
         && request.resource.data.by == request.auth.uid
         && request.resource.data.at == request.time;
       allow list: if false;
+      // Vetrina "Appena regalati": accesa/spenta e data da cui contare (azzerabile al lancio)
+      allow write: if isAdmin()
+        && docId == 'vetrina'
+        && request.resource.data.keys().hasOnly(['attiva', 'daData', 'by', 'at'])
+        && request.resource.data.attiva is bool
+        && request.resource.data.daData is timestamp
+        && request.resource.data.daData <= request.time
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.at == request.time;
+      // Pulsante "Sostieni Rikeka" (donazioni): solo link https, acceso dal Pannello Admin
+      allow write: if isAdmin()
+        && docId == 'sostegno'
+        && request.resource.data.keys().hasOnly(['attivo', 'link', 'testo', 'by', 'at'])
+        && request.resource.data.attivo is bool
+        && request.resource.data.link is string
+        && request.resource.data.link.size() <= 200
+        && (request.resource.data.link == '' || request.resource.data.link.matches('^https://[^ ]+$'))
+        && (!request.resource.data.attivo || request.resource.data.link != '')
+        && request.resource.data.testo is string
+        && request.resource.data.testo.size() <= 200
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.at == request.time;
       // Interruttore "iscrizioni aperte/chiuse" (Pannello Admin)
       allow write: if isAdmin()
         && docId == 'iscrizioni'
@@ -575,6 +597,8 @@ service cloud.firestore {
       // Le query devono filtrare per stato pubblico, per proprietario, oppure essere dell'admin
       allow list: if signedIn() && (
         resource.data.status in ['disponibile', 'in_trattativa']
+        // vetrina «Appena regalati»: solo poche righe alla volta
+        || (resource.data.status == 'concluso' && request.query.limit <= 10)
         || resource.data.ownerId == request.auth.uid
         || resource.data.get('reservedBy', null) == request.auth.uid
         || isAdmin()

@@ -88,6 +88,7 @@
       </ol>
       <p class="info-tip">💡 <b>Consiglio:</b> confermate mentre vi passate l'oggetto (o appena finito il servizio). Chi regala lo lascia solo quando vede la conferma; chi riceve conferma solo quando ce l'ha davanti. Se poi c'è un problema hai 48 ore per segnalarlo.</p>
       <p id="info-bonus" class="info-bonus">🎁 Chi si iscrive riceve 50 KP subito e altri 50 KP al primo scambio concluso.</p>
+      <p class="sostegno hidden info-sostegno">☕ <span class="sostegno-testo"></span> <a href="#" target="_blank" rel="noopener">Sostieni Rikeka</a></p>
       <p class="info-foot">Meno sprechi, più vicinato.</p>
       <p class="info-bug">Qualcosa non funziona? <button type="button" onclick="toggleInfo(event, false); openBugReport()">🐞 Segnala un problema</button></p>
       <button type="button" class="info-close" onclick="toggleInfo(event, false)">Ho capito</button>
@@ -132,6 +133,7 @@
         <button type="button" id="zone-banner" class="zone-banner hidden" onclick="openZoneModal(false)">
           📍 <span><b>Imposta la tua zona</b> per vedere prima gli annunci vicini a te</span> <span class="zone-banner-go">›</span>
         </button>
+        <div id="vetrina" class="vetrina hidden" aria-label="Scambi appena conclusi"></div>
         <h2 class="text-xl font-semibold text-gray-800 mt-3">Annunci</h2>
         <div class="flex mt-4 bg-gray-100 rounded-lg p-1 space-x-1 shadow-md">
           <button id="tab-btn-beni" onclick="switchHomeTab('bene', this)" class="flex-1 py-3 px-4 text-sm font-medium rounded-md bg-green-600 text-white shadow-lg">Beni Materiali</button>
@@ -151,7 +153,7 @@
         <div id="item-list-servizio" class="ad-list"></div>
       </div>
       <div class="px-4 pb-6">
-        <button id="load-more" onclick="loadMoreOffers()" class="hidden w-full py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Carica altri annunci</button>
+        <button id="load-more" onclick="loadMoreOffers()" class="hidden w-full py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100">Mostra altri annunci</button>
       </div>
       </div>
     </section>
@@ -336,6 +338,13 @@
         <div id="storico" class="space-y-2"></div>
       </div>
       </div>
+      <div class="sostegno sostegno-profilo hidden w-full px-4 pb-1">
+        <div class="sostegno-box">
+          <p class="sostegno-titolo">☕ Sostieni Rikeka</p>
+          <p class="sostegno-testo"></p>
+          <a href="#" target="_blank" rel="noopener" class="sostegno-btn">Fai una donazione</a>
+        </div>
+      </div>
       <div class="w-full p-4 space-y-3">
         <button id="admin-btn" onclick="openAdmin()" class="hidden w-full py-3 px-4 rounded-md shadow-lg text-sm font-medium text-white bg-gray-800 hover:bg-gray-900">🛠 Pannello Admin</button>
         <button onclick="handleLogout()" class="w-full py-3 px-4 rounded-md shadow-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700">Logout</button>
@@ -408,6 +417,30 @@
             <button id="maint-btn" onclick="toggleManutenzione()" class="px-3 py-1.5 text-xs font-medium rounded bg-gray-800 text-white hover:bg-gray-900">…</button>
           </div>
           <textarea id="maint-input" class="field mt-2 text-sm" rows="2" maxlength="300" placeholder="Es.: Stiamo aggiornando Rikeka, torniamo verso le 22:00."></textarea>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-1">☕ Sostieni Rikeka (donazioni)</h3>
+          <p class="text-xs text-gray-500 mb-2">Quando lo accendi, nel Profilo e nel riquadro «?» compare un pulsante che porta alla pagina delle donazioni (es. PayPal, Ko-fi, Buy Me a Coffee). Prima di accenderlo verifica come ricevere donazioni in regola (CAF o commercialista).</p>
+          <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+            <span id="sost-stato" class="text-sm font-semibold text-gray-700">…</span>
+            <button id="sost-btn" onclick="toggleSostegno()" class="px-3 py-1.5 text-xs font-medium rounded bg-gray-800 text-white hover:bg-gray-900">…</button>
+          </div>
+          <input id="sost-link" type="url" class="field mt-2 text-sm" maxlength="200" placeholder="Link della pagina donazioni (https://…)">
+          <input id="sost-testo" type="text" class="field mt-2 text-sm" maxlength="200" placeholder="Testo (facoltativo): Rikeka è gratuita e senza pubblicità…">
+          <button onclick="salvaSostegno()" class="mt-2 px-3 py-1.5 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-700">Salva link e testo</button>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-1">✓ Vetrina «Appena regalati»</h3>
+          <p class="text-xs text-gray-500 mb-2">In cima alla Home mostra gli ultimi scambi conclusi degli ultimi 7 giorni (solo titolo, miniatura e quando: nessun nome). Conta solo gli scambi conclusi <b>dopo</b> la data di partenza: quando lanci ufficialmente, premi «Azzera da adesso» e le prove fatte prima spariscono dalla vetrina.</p>
+          <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg gap-2 flex-wrap">
+            <span id="vetr-stato" class="text-sm font-semibold text-gray-700">…</span>
+            <span class="flex gap-2">
+              <button id="vetr-btn" onclick="toggleVetrina()" class="px-3 py-1.5 text-xs font-medium rounded bg-gray-800 text-white hover:bg-gray-900">…</button>
+              <button onclick="azzeraVetrina()" class="px-3 py-1.5 text-xs font-medium rounded bg-amber-500 text-white hover:bg-amber-600">Azzera da adesso</button>
+            </span>
+          </div>
         </div>
 
         <div>

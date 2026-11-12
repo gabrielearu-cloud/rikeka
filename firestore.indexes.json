@@ -25,6 +25,14 @@
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }
+    ,{
+      "collectionGroup": "offerte",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "completionDate", "order": "DESCENDING" }
+      ]
+    }
   ],
   "fieldOverrides": []
 }
